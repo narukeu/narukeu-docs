@@ -1,0 +1,15 @@
+{
+  "name": "narukeu-blog",
+  "scripts": {
+    "dev": "vitepress dev",
+    "build": "vitepress build",
+    "preview": "vitepress preview",
+    "format": "prettier --ignore-path .gitignore --write ."
+  },
+  "license": "CC0-1.0",
+  "packageManager": "pnpm@10.14.0",
+  "devDependencies": {
+    "prettier": "^3.6.2",
+    "vitepress": "^1.6.4"
+  }
+}
