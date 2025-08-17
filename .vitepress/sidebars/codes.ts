@@ -17,6 +17,12 @@ export const codesSidebar: DefaultTheme.SidebarItem[] = [
     ]
   },
   {
+    text: "对象",
+    items: [
+      { text: "将对象转换为 URL 查询字符串", link: "/codes/build-query-string" }
+    ]
+  },
+  {
     text: "随机",
     items: [{ text: "简易版生成 UID 函数", link: "/codes/simple-uid" }]
   },
