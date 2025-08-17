@@ -24,7 +24,10 @@ export const codesSidebar: DefaultTheme.SidebarItem[] = [
   },
   {
     text: "随机",
-    items: [{ text: "简易版生成 UID 函数", link: "/codes/simple-uid" }]
+    items: [
+      { text: "简易版生成 UID 函数", link: "/codes/simple-uid" },
+      { text: "为给定的延迟时间添加抖动", link: "/codes/add-jitter" }
+    ]
   },
   {
     text: "数据显示",
