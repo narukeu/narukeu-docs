@@ -177,7 +177,7 @@ export default tseslint.config(
     ignores: ["dist", "node_modules"],
     languageOptions: {
       ecmaVersion: 2023,
-      globals: { ...globals.browser, ...globals.node },
+      globals: { ...globals.browser },
       parser: tseslint.parser,
       parserOptions: {
         projectService: true
