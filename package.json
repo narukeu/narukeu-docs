@@ -2,14 +2,17 @@
   "name": "narukeu-blog",
   "scripts": {
     "dev": "vitepress dev",
-    "build": "vitepress build",
+    "build": "npm run clear && vitepress build",
     "preview": "vitepress preview",
-    "format": "prettier --ignore-path .gitignore --write ."
+    "format": "prettier --ignore-path .gitignore --write .",
+    "clear": "rimraf .vitepress/dist",
+    "clear:all": "rimraf .vitepress/dist .vitepress/cache"
   },
   "license": "CC0-1.0",
   "packageManager": "pnpm@10.14.0",
   "devDependencies": {
     "prettier": "^3.6.2",
+    "rimraf": "^6.0.1",
     "vitepress": "^1.6.4"
   }
 }
