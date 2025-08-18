@@ -12,11 +12,11 @@
 
 ```typescript
 import js from "@eslint/js";
-import globals from "globals";
-import tseslint from "typescript-eslint";
-
 import prettierRecommended from "eslint-plugin-prettier/recommended";
 import tsdoc from "eslint-plugin-tsdoc";
+import globals from "globals";
+import tseslint from "typescript-eslint";
+import type { Linter } from "eslint";
 
 export default tseslint.config(
   js.configs.recommended,
@@ -52,22 +52,22 @@ export default tseslint.config(
       "@typescript-eslint/no-unsafe-assignment": "warn"
     }
   }
-);
+) as Linter.Config;
 ```
 
 ## With Plugin Import
 
 ```typescript
 import js from "@eslint/js";
-import importX from "eslint-plugin-import-x";
-
-import globals from "globals";
-import tseslint from "typescript-eslint";
+import { createTypeScriptImportResolver } from "eslint-import-resolver-typescript";
+import * as importX from "eslint-plugin-import-x";
 
 import prettierRecommend from "eslint-plugin-prettier/recommended";
 import tsdoc from "eslint-plugin-tsdoc";
+import globals from "globals";
+import tseslint from "typescript-eslint";
 
-import { createTypeScriptImportResolver } from "eslint-import-resolver-typescript";
+import type { Linter } from "eslint";
 
 export default tseslint.config(
   js.configs.recommended,
@@ -146,24 +146,23 @@ export default tseslint.config(
       ]
     }
   }
-);
+) as Linter.Config;
 ```
 
 ## React + Plugin Import
 
 ```typescript
 import js from "@eslint/js";
+import { Linter } from "eslint";
+import { createTypeScriptImportResolver } from "eslint-import-resolver-typescript";
 import importX from "eslint-plugin-import-x";
 
+import prettierRecommend from "eslint-plugin-prettier/recommended";
+import * as reactHooks from "eslint-plugin-react-hooks";
+import reactRefresh from "eslint-plugin-react-refresh";
+import tsdoc from "eslint-plugin-tsdoc";
 import globals from "globals";
 import tseslint from "typescript-eslint";
-
-import prettierRecommend from "eslint-plugin-prettier/recommended";
-import tsdoc from "eslint-plugin-tsdoc";
-import { createTypeScriptImportResolver } from "eslint-import-resolver-typescript";
-
-import reactHooks from "eslint-plugin-react-hooks";
-import reactRefresh from "eslint-plugin-react-refresh";
 
 export default tseslint.config(
   js.configs.recommended,
@@ -244,5 +243,5 @@ export default tseslint.config(
       ]
     }
   }
-);
+) as Linter.Config;
 ```
