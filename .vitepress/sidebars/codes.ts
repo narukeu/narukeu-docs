@@ -3,6 +3,15 @@ import type { DefaultTheme } from "vitepress";
 export const codesSidebar: DefaultTheme.SidebarItem[] = [
   { text: "简介", items: [{ text: "代码片段", link: "/codes" }] },
   {
+    text: "代码格式化",
+    items: [
+      {
+        text: "Eslint 配置",
+        link: "/codes/eslint-flat-config"
+      }
+    ]
+  },
+  {
     text: "数组",
     items: [
       { text: "对象数组指定键求和", link: "/codes/array-sum" },
