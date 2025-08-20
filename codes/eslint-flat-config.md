@@ -6,6 +6,8 @@
 
 如果项目不需要在 Node.js 环境中运行，可以把 `languageOptions.globals` 里的 `...globals.node` 去掉。
 
+`tseslint.configs.recommendedTypeChecked` 意思是启用 `typescript-eslint` 的类型规范，这个比常规的类型检查更严格。
+
 为了保证类型安全，可以将 `eslint.config` 后缀改为 `.ts`，在 Node.js 环境下还需要安装 `jiti` 开发依赖。
 
 ## 基本配置
@@ -21,16 +23,17 @@ import type { Linter } from "eslint";
 export default tseslint.config(
   js.configs.recommended,
   tseslint.configs.recommended,
-  tseslint.configs.recommendedTypeChecked,
+  // tseslint.configs.recommendedTypeChecked,
   prettierRecommended,
   {
-    files: ["**/*.{js,mjs,cjs,ts,mts,cts}"],
-    ignores: ["dist", "node_modules"],
+    files: ["src/**/*.{js,mjs,cjs,ts,mts,cts}"],
     languageOptions: {
       ecmaVersion: 2023,
       globals: { ...globals.browser, ...globals.node },
       parser: tseslint.parser,
       parserOptions: {
+        project: "./tsconfig.json",
+        tsconfigRootDir: import.meta.dirname,
         projectService: true
       }
     },
@@ -72,18 +75,19 @@ import type { Linter } from "eslint";
 export default tseslint.config(
   js.configs.recommended,
   tseslint.configs.recommended,
-  tseslint.configs.recommendedTypeChecked,
+  // tseslint.configs.recommendedTypeChecked,
   prettierRecommend,
   importX.flatConfigs.recommended,
   importX.flatConfigs.typescript,
   {
-    files: ["**/*.{js,mjs,cjs,ts,mts,cts}"],
-    ignores: ["dist", "node_modules"],
+    files: ["src/**/*.{js,mjs,cjs,ts,mts,cts}"],
     languageOptions: {
       ecmaVersion: 2023,
       globals: { ...globals.browser, ...globals.node },
       parser: tseslint.parser,
       parserOptions: {
+        project: "./tsconfig.json",
+        tsconfigRootDir: import.meta.dirname,
         projectService: true
       }
     },
@@ -167,18 +171,19 @@ import tseslint from "typescript-eslint";
 export default tseslint.config(
   js.configs.recommended,
   tseslint.configs.recommended,
-  tseslint.configs.recommendedTypeChecked,
+  // tseslint.configs.recommendedTypeChecked,
   prettierRecommend,
   importX.flatConfigs.recommended,
   importX.flatConfigs.typescript,
   {
-    files: ["**/*.{js,mjs,cjs,ts,mts,cts}"],
-    ignores: ["dist", "node_modules"],
+    files: ["src/**/*.{js,mjs,cjs,ts,mts,cts}"],
     languageOptions: {
       ecmaVersion: 2023,
       globals: { ...globals.browser },
       parser: tseslint.parser,
       parserOptions: {
+        project: "./tsconfig.json",
+        tsconfigRootDir: import.meta.dirname,
         projectService: true
       }
     },
