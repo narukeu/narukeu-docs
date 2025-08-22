@@ -18,6 +18,8 @@
 
 我们假设需要读取的硬盘已经被挂载到了 `/srv` 下面。
 
+`/usr/local/bin/keepalive.sh`：
+
 ```bash
 #!/bin/bash
 
