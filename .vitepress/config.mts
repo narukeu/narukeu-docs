@@ -1,5 +1,6 @@
 import { defineConfig } from "vitepress";
 import { codesSidebar, articlesSidebar, designDocSidebar } from "./sidebars";
+import { MermaidMarkdown } from "./mermaid-markdown";
 
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
@@ -28,6 +29,12 @@ export default defineConfig({
       }
     },
     socialLinks: [{ icon: "github", link: "https://github.com/narukeu" }]
+  },
+
+  markdown: {
+    config: (md) => {
+      MermaidMarkdown(md);
+    }
   },
 
   vite: {
