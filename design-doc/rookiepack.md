@@ -531,34 +531,48 @@ export default defineConfig({
 ### 5.1 整体架构图
 
 ```mermaid
-graph TB
-    subgraph "API Layer (Webpack-like)"
-        CLI[CLI Interface]
-        Config[Config Loader]
-        LoaderAPI[Loader System]
-        PluginAPI[Plugin System]
+flowchart TD
+    %% 用户配置层
+    Config["rookie.config.ts"]
+
+    %% API 层 (Webpack 风格)
+    subgraph API ["Webpack 风格 API"]
+        Compiler["Compiler"]
+        LoaderSystem["Loader"]
+        PluginSystem["Plugin"]
     end
 
-    subgraph "Core Layer"
-        Compiler[Compiler Core]
-        Middleware[Dev Middleware]
-        DevServer[Dev Server]
-        HMR[HMR System]
+    %% 引擎层 (Rollup)
+    subgraph Engine ["引擎层 (Rollup)"]
+        RollupCore["Rollup 核心"]
+        RollupPlugins["Rollup 插件"]
     end
 
-    subgraph "Engine Layer (Rollup)"
-        Rollup[Rollup Engine]
-        RollupPlugins[Rollup Plugins]
+    %% 开发体验层
+    subgraph DevExp ["开发体验"]
+        HMR["HMR 运行时<br/>(import.meta.hot)"]
+        DevServer["开发服 <br/>(Fastify + WS)"]
+        Logger["consola <br/> 日志系统"]
     end
 
-    CLI --> Config
+    %% 输出
+    Output["dist/<br/>构建产物"]
+
+    %% 连接关系
     Config --> Compiler
-    LoaderAPI --> Compiler
-    PluginAPI --> Compiler
-    Compiler --> Rollup
-    Middleware --> Compiler
-    DevServer --> Middleware
-    HMR --> DevServer
+    Compiler --> LoaderSystem
+    Compiler --> PluginSystem
+    LoaderSystem --> RollupCore
+    PluginSystem --> RollupCore
+    RollupCore --> RollupPlugins
+    RollupCore --> Output
+
+    %% 开发时连接
+    RollupCore -.-> HMR
+    HMR -.-> DevServer
+    Compiler --> Logger
+    DevServer -.-> Config
+
 ```
 
 ### 5.2 现代化 HMR 实现
