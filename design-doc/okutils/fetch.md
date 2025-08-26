@@ -8,15 +8,45 @@
 
 项目对标 `axios` 和 `ky` 的设计理念，力求融合两者的优点。`axios` 的易用性和强大的功能集是其广受欢迎的原因，而 `ky` 则以其现代化和简洁著称。`@okutils/fetch` 试图在两者之间找到一个平衡点：提供完整的生命周期和插件生态系统，类似于 `axios`；同时保持 API 的现代化和轻量化，类似于 `ky`。
 
-### 1.2 设计理念
+### 1.2 Monorepo 架构设计
+
+本项目采用基于 pnpm workspace 的 monorepo 设计，提供统一的开发、构建、发布和维护流程。
+
+#### 1.2.1 包结构设计
+
+```
+@okutils/fetch-monorepo/                 # Workspace Root
+├── packages/
+│   ├── core/                           # @okutils/fetch-core (核心包)
+│   ├── shared/                         # @okutils/fetch-shared (共享配置)
+│   └── plugins/                        # 插件目录 (非包，仅用于组织)
+│       ├── cache/                      # @okutils/fetch-plugin-cache
+│       ├── retry/                      # @okutils/fetch-plugin-retry
+│       ├── dedup/                      # @okutils/fetch-plugin-dedup
+│       ├── progress/                   # @okutils/fetch-plugin-progress
+│       └── concurrent/                 # @okutils/fetch-plugin-concurrent
+├── package.json                        # Workspace root configuration
+├── pnpm-workspace.yaml                 # pnpm workspace configuration
+└── shared configs...                   # 共享配置文件
+```
+
+#### 1.2.2 包依赖关系
+
+- **@okutils/fetch-monorepo**: Workspace root，不发布，仅用于开发和构建协调
+- **@okutils/fetch-core**: 核心功能包，提供主要的 API 和功能
+- **@okutils/fetch-shared**: 共享配置包，包含 TypeScript、ESLint、Rollup 等配置
+- **@okutils/fetch-plugin-\***: 各种插件包，依赖核心包并扩展功能
+
+### 1.3 设计理念
 
 - **现代化优先**：充分利用现代 JavaScript/TypeScript 特性，不为过时的环境做妥协
 - **类型安全**：提供完整的 TypeScript 类型定义，实现编译时类型检查
 - **插件化架构**：核心功能精简，通过插件扩展功能
 - **同构设计**：支持浏览器和 Node.js 环境，为未来的 SSR 支持做准备
 - **开发者友好**：直观的 API 设计，详细的错误信息，完善的文档
+- **Monorepo 优势**：统一开发体验，原子化版本控制，共享配置和工具链
 
-### 1.3 核心特性
+### 1.4 核心特性
 
 - 基于原生 Fetch API，本项目只官方支持在原生支持 Fetch API （新的浏览器和 Node.js 18+），用户可以自己通过 polyfill 的方式在浏览器中添加 fetch 甚至对这个库已经 hack，以支持旧环境，但是因此出现的 bug 不在官方的修复范畴。
 - 完整的生命周期钩子系统
@@ -27,65 +57,806 @@
 - 支持请求取消和超时控制
 - 实例化和单例模式并存
 
-### 1.4 技术栈
+### 1.5 技术栈
 
 - **开发语言**：TypeScript
+- **包管理工具**：pnpm (支持 workspace)
 - **构建工具**：Rollup + 原生 TypeScript 编译器
-- **包管理**：pnpm
+- **代码规范**：ESLint + Prettier
 - **工具库**：radash（以后会使用 `@okutils/core`，这个是和 radash 的 fork 但是暂未发布，等发布之后替换）
 - **最低运行环境**：支持原生 Fetch API 的环境
 - **暂时不考虑测试套件**
 
-## 2. 核心架构设计
+## 2. Monorepo 配置与最佳实践
 
-### 2.1 整体架构
+### 2.1 Workspace Root 配置
 
-`@okutils/fetch` 采用分层架构设计，从底层到顶层依次为：
+#### package.json
+
+```json
+{
+  "name": "@okutils/fetch-monorepo",
+  "version": "1.0.0",
+  "description": "Modern HTTP client library based on native Fetch API with full TypeScript support",
+  "type": "module",
+  "private": true,
+  "exports": {
+    "types": "./packages/core/dist/types/index.d.ts",
+    "import": "./packages/core/dist/esm/index.mjs",
+    "require": "./packages/core/dist/cjs/index.cjs"
+  },
+  "scripts": {
+    "build": "pnpm -r build",
+    "build:core": "pnpm --filter @okutils/fetch-core build",
+    "build:plugins": "pnpm --filter '@okutils/fetch-plugin-*' build",
+    "dev": "pnpm -r --parallel dev",
+    "clean": "pnpm -r clean && rm -rf dist",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "type-check": "tsc --noEmit",
+    "changeset": "changeset",
+    "version": "changeset version",
+    "release": "pnpm build && changeset publish"
+  },
+  "keywords": [
+    "fetch",
+    "http",
+    "request",
+    "typescript",
+    "browser",
+    "nodejs",
+    "modern",
+    "plugins"
+  ],
+  "author": "OkUtils Team",
+  "license": "MIT",
+  "packageManager": "pnpm@10.15.0",
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=8.0.0"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^2.27.9",
+    "@eslint/js": "^9.34.0",
+    "@types/node": "^24.3.0",
+    "eslint": "^9.34.0",
+    "eslint-import-resolver-typescript": "^4.4.4",
+    "eslint-plugin-import-x": "^4.16.1",
+    "eslint-plugin-prettier": "^5.5.4",
+    "eslint-plugin-tsdoc": "^0.4.0",
+    "globals": "^16.3.0",
+    "prettier": "^3.6.2",
+    "rollup": "4.48.1",
+    "rollup-plugin-dts": "^6.2.3",
+    "typescript": "5.9.2",
+    "typescript-eslint": "^8.41.0"
+  },
+  "dependencies": {
+    "radash": "^12.1.1"
+  }
+}
+```
+
+#### pnpm-workspace.yaml
+
+```yaml
+packages:
+  - "packages/*"
+  - "packages/plugins/*"
+```
+
+#### .gitignore
+
+```
+# Windows thumbnail cache files
+
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+
+# Dump file
+
+\*.stackdump
+
+# Folder config file
+
+[Dd]esktop.ini
+
+# Recycle Bin used on file shares
+
+$RECYCLE.BIN/
+
+# Windows Installer files
+
+_.cab
+_.msi
+_.msix
+_.msm
+\*.msp
+
+# Windows shortcuts
+
+\*.lnk
+
+# General
+
+.DS_Store
+\_\_MACOSX/
+.AppleDouble
+.LSOverride
+Icon[
+]
+
+# Thumbnails
+
+.\_\*
+
+# Files that might appear in the root of a volume
+
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# Directories potentially created on remote AFP share
+
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+\*~
+
+# temporary files which can be created if a process still has a handle open of a deleted file
+
+.fuse_hidden\*
+
+# Metadata left by Dolphin file manager, which comes with KDE Plasma
+
+.directory
+
+# Linux trash folder which might appear on any partition or disk
+
+.Trash-\*
+
+# .nfs files are created when an open file is removed but is still being accessed
+
+.nfs\*
+
+# Log files created by default by the nohup command
+
+nohup.out
+
+.vscode/_
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+!.vscode/_.code-snippets
+!\*.code-workspace
+
+# Built Visual Studio Code Extensions
+
+\*.vsix
+
+# Covers JetBrains IDEs: IntelliJ, GoLand, RubyMine, PhpStorm, AppCode, PyCharm, CLion, Android Studio, WebStorm and Rider
+
+# Reference: https://intellij-support.jetbrains.com/hc/en-us/articles/206544839
+
+# User-specific stuff
+
+.idea/**/workspace.xml
+.idea/**/tasks.xml
+.idea/**/usage.statistics.xml
+.idea/**/dictionaries
+.idea/\*\*/shelf
+
+# AWS User-specific
+
+.idea/\*\*/aws.xml
+
+# Generated files
+
+.idea/\*\*/contentModel.xml
+
+# Sensitive or high-churn files
+
+.idea/**/dataSources/
+.idea/**/dataSources.ids
+.idea/**/dataSources.local.xml
+.idea/**/sqlDataSources.xml
+.idea/**/dynamic.xml
+.idea/**/uiDesigner.xml
+.idea/\*\*/dbnavigator.xml
+
+# Gradle
+
+.idea/**/gradle.xml
+.idea/**/libraries
+
+# Gradle and Maven with auto-import
+
+# When using Gradle or Maven with auto-import, you should exclude module files,
+
+# since they will be recreated, and may cause churn. Uncomment if using
+
+# auto-import.
+
+# .idea/artifacts
+
+# .idea/compiler.xml
+
+# .idea/jarRepositories.xml
+
+# .idea/modules.xml
+
+# .idea/\*.iml
+
+# .idea/modules
+
+# \*.iml
+
+# \*.ipr
+
+# CMake
+
+cmake-build-\*/
+
+# Mongo Explorer plugin
+
+.idea/\*\*/mongoSettings.xml
+
+# File-based project format
+
+\*.iws
+
+# IntelliJ
+
+out/
+
+# mpeltonen/sbt-idea plugin
+
+.idea_modules/
+
+# JIRA plugin
+
+atlassian-ide-plugin.xml
+
+# Cursive Clojure plugin
+
+.idea/replstate.xml
+
+# SonarLint plugin
+
+.idea/sonarlint/
+.idea/sonarlint.xml # see https://community.sonarsource.com/t/is-the-file-idea-idea-idea-sonarlint-xml-intended-to-be-under-source-control/121119
+
+# Crashlytics plugin (for Android Studio and IntelliJ)
+
+com_crashlytics_export_strings.xml
+crashlytics.properties
+crashlytics-build.properties
+fabric.properties
+
+# Editor-based HTTP Client
+
+.idea/httpRequests
+http-client.private.env.json
+
+# Android studio 3.1+ serialized cache file
+
+.idea/caches/build_file_checksums.ser
+
+# Apifox Helper cache
+
+.idea/.cache/.Apifox_Helper
+.idea/ApifoxUploaderProjectSetting.xml
+
+# Cursor AI
+
+.cursorignore
+.cursorindexingignore
+
+# Logs
+
+logs
+_.log
+npm-debug.log_
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log\*
+
+# Diagnostic reports (https://nodejs.org/api/report.html)
+
+report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
+
+# Runtime data
+
+pids
+_.pid
+_.seed
+\*.pid.lock
+
+# Directory for instrumented libs generated by jscoverage/JSCover
+
+lib-cov
+
+# Coverage directory used by tools like istanbul
+
+coverage
+\*.lcov
+
+# nyc test coverage
+
+.nyc_output
+
+# Grunt intermediate storage (https://gruntjs.com/creating-plugins#storing-task-files)
+
+.grunt
+
+# Bower dependency directory (https://bower.io/)
+
+bower_components
+
+# node-waf configuration
+
+.lock-wscript
+
+# Compiled binary addons (https://nodejs.org/api/addons.html)
+
+build/Release
+
+# Dependency directories
+
+node_modules/
+jspm_packages/
+
+# Snowpack dependency directory (https://snowpack.dev/)
+
+web_modules/
+
+# TypeScript cache
+
+\*.tsbuildinfo
+
+# Optional npm cache directory
+
+.npm
+
+# Optional eslint cache
+
+.eslintcache
+
+# Optional stylelint cache
+
+.stylelintcache
+
+# Optional REPL history
+
+.node_repl_history
+
+# Output of 'npm pack'
+
+\*.tgz
+
+# Yarn Integrity file
+
+.yarn-integrity
+
+# dotenv environment variable files
+
+.env
+.env.\*
+!.env.example
+
+# parcel-bundler cache (https://parceljs.org/)
+
+.cache
+.parcel-cache
+
+# Next.js build output
+
+.next
+out
+
+# Nuxt.js build / generate output
+
+.nuxt
+dist
+.output
+
+# Gatsby files
+
+.cache/
+
+# Comment in the public line in if your project uses Gatsby and not Next.js
+
+# https://nextjs.org/blog/next-9-1#public-directory-support
+
+# public
+
+# vuepress build output
+
+.vuepress/dist
+
+# vuepress v2.x temp and cache directory
+
+.temp
+.cache
+
+# Sveltekit cache directory
+
+.svelte-kit/
+
+# vitepress build output
+
+\*\*/.vitepress/dist
+
+# vitepress cache directory
+
+\*\*/.vitepress/cache
+
+# Docusaurus cache and generated files
+
+.docusaurus
+
+# Serverless directories
+
+.serverless/
+
+# FuseBox cache
+
+.fusebox/
+
+# DynamoDB Local files
+
+.dynamodb/
+
+# Firebase cache directory
+
+.firebase/
+
+# TernJS port file
+
+.tern-port
+
+# Stores VSCode versions used for testing VSCode extensions
+
+.vscode-test
+
+# yarn v3
+
+.pnp._
+.yarn/_
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
+
+# Vite logs files
+
+vite.config.js.timestamp-_
+vite.config.ts.timestamp-_
+
+```
+
+### 2.2 共享配置文件
+
+#### ESLint 配置 (eslint.config.mjs)
+
+```javascript
+import js from "@eslint/js";
+import { createTypeScriptImportResolver } from "eslint-import-resolver-typescript";
+import * as importX from "eslint-plugin-import-x";
+import prettierRecommend from "eslint-plugin-prettier/recommended";
+import tsdoc from "eslint-plugin-tsdoc";
+import globals from "globals";
+import tseslint from "typescript-eslint";
+
+export default tseslint.config(
+  js.configs.recommended,
+  tseslint.configs.recommended,
+  prettierRecommend,
+  importX.flatConfigs.recommended,
+  importX.flatConfigs.typescript,
+  {
+    files: ["packages/*/src/**/*.{js,mjs,cjs,ts,mts,cts}"],
+    languageOptions: {
+      ecmaVersion: 2023,
+      globals: { ...globals.browser, ...globals.node },
+      parser: tseslint.parser,
+      parserOptions: {
+        project: "./tsconfig.json",
+        tsconfigRootDir: import.meta.dirname,
+        projectService: true
+      }
+    },
+    plugins: {
+      tsdoc,
+      "@typescript-eslint": tseslint.plugin,
+      "import-x": importX
+    },
+    rules: {
+      "tsdoc/syntax": "warn",
+      "prefer-const": "warn",
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        {
+          argsIgnorePattern: "^_",
+          varsIgnorePattern: "^_"
+        }
+      ],
+      "@typescript-eslint/no-explicit-any": "warn",
+      "@typescript-eslint/no-unsafe-assignment": "warn",
+      "import-x/order": [
+        "warn",
+        {
+          groups: [
+            "builtin",
+            "external",
+            "internal",
+            "unknown",
+            "parent",
+            "sibling",
+            "index",
+            "object",
+            "type"
+          ],
+          alphabetize: {
+            order: "asc",
+            caseInsensitive: false
+          }
+        }
+      ]
+    },
+    settings: {
+      "import/resolver-next": [
+        createTypeScriptImportResolver({
+          alwaysTryTypes: true,
+          extensions: [
+            ".js",
+            ".mjs",
+            ".jsx",
+            ".ts",
+            ".cjs",
+            ".cts",
+            ".mts",
+            ".tsx",
+            ".json"
+          ]
+        })
+      ]
+    }
+  },
+  {
+    // Configuration files
+    files: ["**/*.config.{js,mjs,ts}", "**/rollup.config.{js,mjs,ts}"],
+    rules: {
+      "@typescript-eslint/no-unused-vars": "off"
+    }
+  }
+);
+```
+
+#### Prettier 配置 (.prettierrc.json)
+
+```json
+{
+  "$schema": "https://json.schemastore.org/prettierrc",
+  "semi": true,
+  "tabWidth": 2,
+  "singleQuote": false,
+  "printWidth": 80,
+  "trailingComma": "none"
+}
+```
+
+#### TypeScript 配置 (tsconfig.json)
+
+```json
+{
+  "compilerOptions": {
+    // File Layout
+    "baseUrl": "./",
+    "outDir": "./dist",
+
+    // Environment Settings
+    "module": "ESNext",
+    "target": "ESNext",
+    "esModuleInterop": true,
+    "moduleResolution": "node",
+
+    // For Node.js and Browser support
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": ["node"],
+
+    // Output Options
+    "sourceMap": true,
+    "declaration": true,
+    "declarationMap": true,
+
+    // Strict Checks
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "noImplicitReturns": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+
+    // Advanced Options
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "allowSyntheticDefaultImports": true
+  },
+  "include": ["packages/*/src/**/*", "packages/*/types/**/*"],
+  "exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.spec.ts"],
+  "references": [
+    { "path": "./packages/shared" },
+    { "path": "./packages/core" },
+    { "path": "./packages/plugins/cache" },
+    { "path": "./packages/plugins/retry" },
+    { "path": "./packages/plugins/dedup" },
+    { "path": "./packages/plugins/progress" },
+    { "path": "./packages/plugins/concurrent" }
+  ]
+}
+```
+
+### 2.3 共享 Rollup 配置
+
+#### packages/shared/rollup.config.base.mjs
+
+```javascript
+import { readFileSync } from "fs";
+import { resolve } from "path";
+import dts from "rollup-plugin-dts";
+
+/**
+ * 创建基础的 Rollup 配置
+ * @param {string} packageDir - 包目录路径
+ * @param {object} options - 配置选项
+ * @returns {Array} Rollup 配置数组
+ */
+export function createRollupConfig(packageDir, options = {}) {
+  const pkg = JSON.parse(
+    readFileSync(resolve(packageDir, "package.json"), "utf-8")
+  );
+
+  const {
+    external = [],
+    plugins = [],
+    input = "src/index.ts",
+    formats = ["esm", "cjs"],
+    generateDts = true
+  } = options;
+
+  // 基础外部依赖
+  const baseExternal = [
+    ...Object.keys(pkg.dependencies || {}),
+    ...Object.keys(pkg.peerDependencies || {}),
+    "radash"
+  ];
+
+  const configs = [];
+
+  // 主要构建配置
+  if (formats.includes("esm") || formats.includes("cjs")) {
+    configs.push({
+      input: resolve(packageDir, input),
+      external: [...baseExternal, ...external],
+      plugins: [...plugins],
+      output: [
+        formats.includes("esm") && {
+          file: resolve(packageDir, "dist/esm/index.mjs"),
+          format: "es",
+          sourcemap: true
+        },
+        formats.includes("cjs") && {
+          file: resolve(packageDir, "dist/cjs/index.cjs"),
+          format: "cjs",
+          sourcemap: true,
+          exports: "named"
+        }
+      ].filter(Boolean)
+    });
+  }
+
+  // TypeScript 声明文件配置
+  if (generateDts) {
+    configs.push({
+      input: resolve(packageDir, input),
+      external: [...baseExternal, ...external],
+      plugins: [dts()],
+      output: {
+        file: resolve(packageDir, "dist/types/index.d.ts"),
+        format: "es"
+      }
+    });
+  }
+
+  return configs;
+}
+```
+
+## 3. 核心架构设计
+
+### 3.1 整体架构
+
+`@okutils/fetch-core` 采用分层架构设计，从底层到顶层依次为：
 
 1. **基础层**：封装原生 Fetch API，提供基本的请求能力
 2. **核心层**：实现配置管理、生命周期、错误处理等核心功能
 3. **插件层**：通过插件扩展功能，如缓存、重试、进度等
 4. **接口层**：对外暴露的 API 接口
 
-### 2.2 模块划分
+### 3.2 模块划分
 
 ```
-@okutils/fetch/
-├── index.ts
-├── core/              # 核心功能
-│   ├── request.ts     # 请求处理
-│   ├── response.ts    # 响应处理
-│   ├── error.ts       # 错误处理
-│   ├── config.ts      # 配置管理
-|   ├── index.ts
-│   └── hooks.ts       # 生命周期钩子
-├── instance/          # 实例管理
-│   ├── create.ts      # 创建实例
-|   ├── index.ts
-│   └── default.ts     # 默认实例
-├── types/             # 类型定义
-│   ├── config.ts      # 配置类型
-│   ├── hooks.ts       # 钩子类型
-|   ├── index.ts
-│   └── plugin.ts      # 插件类型
-└── utils/             # 工具函数
-    ├── headers.ts     # Headers 处理
-    ├── index.ts
-    └── url.ts         # URL 处理
+packages/
+├── core/                               # @okutils/fetch-core
+│   ├── src/
+│   │   ├── index.ts                   # 主入口文件
+│   │   ├── core/                      # 核心功能
+│   │   │   ├── request.ts             # 请求处理
+│   │   │   ├── response.ts            # 响应处理
+│   │   │   ├── error.ts               # 错误处理
+│   │   │   ├── config.ts              # 配置管理
+│   │   │   ├── index.ts
+│   │   │   └── hooks.ts               # 生命周期钩子
+│   │   ├── instance/                  # 实例管理
+│   │   │   ├── create.ts              # 创建实例
+│   │   │   ├── index.ts
+│   │   │   └── default.ts             # 默认实例
+│   │   ├── types/                     # 类型定义
+│   │   │   ├── config.ts              # 配置类型
+│   │   │   ├── hooks.ts               # 钩子类型
+│   │   │   ├── index.ts
+│   │   │   └── plugin.ts              # 插件类型
+│   │   └── utils/                     # 工具函数
+│   │       ├── headers.ts             # Headers 处理
+│   │       ├── index.ts
+│   │       └── url.ts                 # URL 处理
+│   ├── package.json
+│   ├── tsconfig.json
+│   └── rollup.config.mjs
+├── shared/                            # @okutils/fetch-shared
+│   ├── src/
+│   │   ├── index.ts
+│   │   ├── rollup.config.base.mjs     # 共享 Rollup 配置
+│   │   ├── tsconfig.base.json         # 共享 TypeScript 配置
+│   │   └── eslint.config.shared.mjs   # 共享 ESLint 配置
+│   ├── package.json
+│   └── tsconfig.json
+└── plugins/                           # 插件目录 (非包)
+    ├── cache/                         # @okutils/fetch-plugin-cache
+    ├── retry/                         # @okutils/fetch-plugin-retry
+    ├── dedup/                         # @okutils/fetch-plugin-dedup
+    ├── progress/                      # @okutils/fetch-plugin-progress
+    └── concurrent/                    # @okutils/fetch-plugin-concurrent
 ```
 
-### 2.3 数据流
+### 3.3 数据流
 
 请求的完整生命周期数据流如下：
 
 1. 用户发起请求 → 2. 触发 `onStart` 钩子 → 3. 执行 `beforeRequest` 钩子 → 4. 插件中间件处理 → 5. 发送实际请求 → 6. 触发 `afterRequest` 钩子 → 7. 接收响应 → 8. 触发 `afterResponse` 钩子 → 9. 解析响应 → 10. 触发 `beforeParse` 和 `afterParse` 钩子 → 11. 成功则触发 `onSuccess`，失败则触发 `onError` → 12. 最终触发 `onFinally`
 
-## 3. API 规范
+## 4. API 规范
 
-### 3.1 实例创建
+### 4.1 实例创建
 
 ```typescript
-import { createFetch } from "@okutils/fetch";
+import { createFetch } from "@okutils/fetch-core";
 
 // 创建自定义实例
 const customFetch = createFetch({
@@ -97,12 +868,12 @@ const customFetch = createFetch({
 });
 
 // 使用默认实例
-import fetch from "@okutils/fetch";
+import fetch from "@okutils/fetch-core";
 ```
 
-### 3.2 请求方法
+### 4.2 请求方法
 
-#### 3.2.1 核心请求方法
+### 4.2 便捷方法
 
 ```typescript
 interface IFetchInstance {
@@ -111,7 +882,7 @@ interface IFetchInstance {
 }
 ```
 
-#### 3.2.2 便捷方法
+### 4.3 请求配置
 
 ```typescript
 interface IFetchInstance {
@@ -129,7 +900,7 @@ interface IFetchInstance {
 }
 ```
 
-### 3.3 请求配置
+### 4.4 响应结构
 
 ```typescript
 interface IRequestOptions {
@@ -183,7 +954,11 @@ interface IRequestOptions {
 }
 ```
 
-### 3.4 响应结构
+## 5. 插件系统设计
+
+### 5.1 插件系统执行模型
+
+`@okutils/fetch-core` 采用基于中间件的插件架构，结合生命周期钩子提供强大的扩展能力。
 
 ```typescript
 interface IFetchResponse<T = any> {
@@ -196,20 +971,14 @@ interface IFetchResponse<T = any> {
 }
 ```
 
-## 4. 插件系统设计
-
-### 4.1 插件系统执行模型
-
-`@okutils/fetch` 采用基于中间件的插件架构，结合生命周期钩子提供强大的扩展能力。
-
-#### 4.1.1 双重执行机制
+#### 5.1.1 双重执行机制
 
 插件通过两种机制影响请求处理：
 
 1. **中间件机制**：包装整个请求/响应流程，支持请求拦截、响应处理、错误恢复等
 2. **钩子机制**：在特定生命周期节点执行，用于日志记录、状态通知、数据转换等
 
-#### 4.1.2 执行时序图
+#### 5.1.2 执行时序图
 
 ```mermaid
 sequenceDiagram
@@ -234,13 +1003,13 @@ sequenceDiagram
     IH->>U: 12. 返回结果
 ```
 
-#### 4.1.3 冲突避免原则
+#### 5.1.3 冲突避免原则
 
 - **职责分离**：中间件处理请求流程，钩子处理副作用
 - **数据不变性**：钩子不应修改已确定的响应数据
 - **错误隔离**：单个插件的错误不应影响其他插件
 
-### 4.2 插件接口定义
+### 5.2 插件接口定义
 
 ```typescript
 interface IPlugin<TOptions = any> {
@@ -270,7 +1039,7 @@ type TMiddleware = (
 ) => Promise<Response>;
 ```
 
-#### 4.2.1 插件钩子优先级
+#### 5.2.1 插件钩子优先级
 
 当插件定义了与用户相同的生命周期钩子时，执行顺序为：
 
@@ -297,12 +1066,12 @@ instanceConfig.hooks.beforeRequest()
   → requestConfig.hooks.beforeRequest()
 ```
 
-### 4.3 插件注册机制
+### 5.3 插件注册机制
 
 插件通过显式导入并在配置中注册：
 
 ```typescript
-import { createFetch } from "@okutils/fetch";
+import { createFetch } from "@okutils/fetch-core";
 import cachePlugin from "@okutils/fetch-plugin-cache";
 import retryPlugin from "@okutils/fetch-plugin-retry";
 
@@ -320,7 +1089,7 @@ const fetch = createFetch({
 });
 ```
 
-#### 4.3.1 插件包标准导出实例
+#### 5.3.1 插件包标准导出实例
 
 ```typescript
 // @okutils/fetch-plugin-cache/index.ts
@@ -344,7 +1113,7 @@ export default (options?: ICachePluginOptions): IPluginInstance => {
 };
 ```
 
-#### 4.3.2 插件执行顺序
+#### 5.3.2 插件执行顺序
 
 插件按照在 `plugins` 数组中的声明顺序执行：
 
@@ -377,7 +1146,7 @@ cachePlugin.middleware(context, () =>
 );
 ```
 
-### 4.4 插件配置扩展
+### 5.4 插件配置扩展
 
 ```typescript
 // 直接使用 IPluginInstance
@@ -387,9 +1156,9 @@ interface IRequestOptions {
 }
 ```
 
-### 4.5 官方插件列表
+### 5.5 官方插件列表
 
-#### 4.5.1 缓存插件 (@okutils/fetch-plugin-cache)
+#### 5.5.1 缓存插件 (@okutils/fetch-plugin-cache)
 
 提供请求缓存功能，支持内存缓存和持久化缓存：
 
@@ -403,7 +1172,7 @@ interface ICachePluginOptions {
 }
 ```
 
-#### 4.5.2 去重插件 (@okutils/fetch-plugin-dedup)
+#### 5.5.2 去重插件 (@okutils/fetch-plugin-dedup)
 
 提供请求去重和节流功能：
 
@@ -415,7 +1184,7 @@ interface IDedupPluginOptions {
 }
 ```
 
-#### 4.5.3 重试插件 (@okutils/fetch-plugin-retry)
+#### 5.5.3 重试插件 (@okutils/fetch-plugin-retry)
 
 提供请求重试功能：
 
@@ -431,7 +1200,7 @@ interface IRetryPluginOptions {
 }
 ```
 
-#### 4.5.4 进度插件 (@okutils/fetch-plugin-progress)
+#### 5.5.4 进度插件 (@okutils/fetch-plugin-progress)
 
 提供上传和下载进度监控：
 
@@ -450,7 +1219,7 @@ interface IProgressEvent {
 }
 ```
 
-#### 4.5.5 并发控制插件 (@okutils/fetch-plugin-concurrent)
+#### 5.5.5 并发控制插件 (@okutils/fetch-plugin-concurrent)
 
 控制并发请求数量：
 
@@ -462,9 +1231,9 @@ interface IConcurrentPluginOptions {
 }
 ```
 
-## 5. 类型系统设计
+## 6. 类型系统设计
 
-### 5.1 核心类型定义
+### 6.1 核心类型定义
 
 ```typescript
 // HTTP 方法类型
@@ -502,7 +1271,7 @@ interface ICSRFConfig {
 }
 ```
 
-### 5.2 生命周期钩子类型
+### 6.2 生命周期钩子类型
 
 ```typescript
 interface ICoreHooks {
@@ -540,7 +1309,7 @@ interface ICoreHooks {
 }
 ```
 
-### 5.3 错误类型定义
+### 6.3 错误类型定义
 
 ```typescript
 // 基础错误类
@@ -604,7 +1373,7 @@ class AbortError extends FetchError {
 }
 ```
 
-### 5.4 泛型约束
+### 6.4 泛型约束
 
 ```typescript
 // URL 参数类型安全
@@ -634,9 +1403,9 @@ const user = await fetch.get<IUser>("/users/:id", {
 });
 ```
 
-## 6. 错误处理机制
+## 7. 错误处理机制
 
-### 6.1 错误分类与处理
+### 7.1 错误分类与处理
 
 系统将错误分为五大类，每类都有明确的处理策略：
 
@@ -646,13 +1415,13 @@ const user = await fetch.get<IUser>("/users/:id", {
 4. **解析错误**：响应数据无法按预期格式解析
 5. **取消错误**：请求被用户或系统主动取消
 
-#### 6.1.1 取消错误的特殊性
+#### 7.1.1 取消错误的特殊性
 
 - 取消错误不代表请求失败，而是用户的主动行为
 - 在统计和错误上报中应区别对待
 - 通常不需要重试或错误提示
 
-### 6.2 错误捕获机制
+### 7.2 错误捕获机制
 
 ```typescript
 try {
@@ -679,7 +1448,7 @@ try {
 }
 ```
 
-### 6.3 全局错误处理
+### 7.3 全局错误处理
 
 通过配置全局 `onError` 钩子统一处理错误：
 
@@ -708,7 +1477,7 @@ const fetch = createFetch({
 });
 ```
 
-### 6.4 错误恢复策略
+### 7.4 错误恢复策略
 
 系统提供多种错误恢复机制：
 
@@ -716,7 +1485,7 @@ const fetch = createFetch({
 - **降级处理**：在 `onError` 钩子中返回降级数据
 - **断路器模式**：通过插件实现，避免雪崩效应
 
-### 6.5 错误转换机制
+### 7.5 错误转换机制
 
 为了保持错误处理的一致性，系统会将原生错误转换为统一的错误类型：
 
@@ -766,9 +1535,9 @@ const transformNativeError = (
 - 提供统一的错误接口和属性
 - 便于错误分类和处理逻辑
 
-## 7. 配置系统
+## 8. 配置系统
 
-### 7.1 配置优先级
+### 8.1 配置优先级
 
 配置采用三级优先级系统，从高到低为：
 
@@ -776,9 +1545,9 @@ const transformNativeError = (
 2. **实例级配置**：创建实例时的配置
 3. **默认配置**：系统提供的默认值
 
-### 7.2 配置合并策略
+### 8.2 配置合并策略
 
-#### 7.2.1 基础配置合并
+#### 8.2.1 基础配置合并
 
 简单类型配置采用覆盖策略：
 
@@ -796,7 +1565,7 @@ const response = await instance.get("/api", {
 });
 ```
 
-#### 7.2.2 Headers 深度合并
+#### 8.2.2 Headers 深度合并
 
 Headers 采用深度合并策略：
 
@@ -825,7 +1594,7 @@ await instance.post("/api", data, {
 // }
 ```
 
-#### 7.2.3 钩子函数合并
+#### 8.2.3 钩子函数合并
 
 钩子函数采用组合执行策略：
 
@@ -867,7 +1636,7 @@ modifiedOptions = await pluginHook(modifiedOptions);
 modifiedOptions = await requestHook(modifiedOptions);
 ```
 
-### 7.3 默认配置
+### 8.3 默认配置
 
 ```typescript
 const defaultConfig: IRequestOptions = {
@@ -886,9 +1655,9 @@ const defaultConfig: IRequestOptions = {
 };
 ```
 
-## 8. 生命周期详解
+## 9. 生命周期详解
 
-### 8.1 完整生命周期流程
+### 9.1 完整生命周期流程
 
 ```mermaid
 graph TD
@@ -909,19 +1678,19 @@ graph TD
     N --> O
 ```
 
-### 8.2 钩子执行时机与作用
+### 9.2 钩子执行时机与作用
 
-#### 8.2.0 钩子的执行顺序
+#### 9.2.0 钩子的执行顺序
 
 实例钩子 → 插件钩子（按优先级）→ 请求钩子
 
-#### 8.2.1 onStart
+#### 9.2.1 onStart
 
 - **执行时机**：请求开始时，所有处理之前
 - **作用**：初始化操作，如显示加载状态
 - **特点**：只能读取配置，不能修改
 
-#### 8.2.2 beforeRequest
+#### 9.2.2 beforeRequest
 
 - **执行时机**：请求发送前
 - **作用**：修改请求配置，如添加认证信息、序列化数据
@@ -952,25 +1721,25 @@ if (requestHooks.beforeRequest) {
 const request = new Request(url, options);
 ```
 
-#### 8.2.3 afterRequest
+#### 9.2.3 afterRequest
 
 - **执行时机**：请求已发送，等待响应时
 - **作用**：记录请求日志、性能监控
 - **特点**：异步执行，不阻塞响应
 
-#### 8.2.4 afterResponse
+#### 9.2.4 afterResponse
 
 - **执行时机**：收到响应后，解析前
 - **作用**：响应预处理，如统一错误码处理
 - **特点**：可以修改响应对象
 
-#### 8.2.5 beforeParse 和 afterParse
+#### 9.2.5 beforeParse 和 afterParse
 
 - **执行时机**：解析响应数据前后
 - **作用**：自定义解析逻辑、数据转换
 - **特点**：支持不同响应类型的处理
 
-#### 8.2.6 onSuccess 和 onError
+#### 9.2.6 onSuccess 和 onError
 
 - **执行时机**：请求成功或失败时
 - **作用**：业务逻辑处理、错误恢复
@@ -995,13 +1764,13 @@ const request = new Request(url, options);
 }
 ```
 
-#### 8.2.7 onFinally
+#### 9.2.7 onFinally
 
 - **执行时机**：请求结束时，无论成功失败
 - **作用**：清理操作，如隐藏加载状态
 - **特点**：总是最后执行
 
-### 8.3 钩子的异步处理
+### 9.3 钩子的异步处理
 
 所有钩子都支持异步操作：
 
@@ -1021,9 +1790,9 @@ const request = new Request(url, options);
 }
 ```
 
-## 9. 实现路线图
+## 10. 实现路线图
 
-### 9.1 第一阶段：核心功能
+### 10.1 第一阶段：核心功能
 
 - 基础请求功能封装
 - 实例创建与管理
@@ -1034,7 +1803,7 @@ const request = new Request(url, options);
 - 自动序列化与解析
 - 请求取消与超时
 
-### 9.2 第二阶段：插件系统
+### 10.2 第二阶段：插件系统
 
 - 插件接口定义
 - 插件注册机制
@@ -1044,7 +1813,7 @@ const request = new Request(url, options);
 - 官方插件：重试
 - 官方插件：并发控制
 
-### 9.3 第三阶段：高级功能
+### 10.3 第三阶段：高级功能
 
 - 官方插件：进度
 
@@ -1053,7 +1822,7 @@ const request = new Request(url, options);
 - GraphQL 支持插件
 - 请求模拟与测试工具
 
-### 9.4 第四阶段：生态建设
+### 10.4 第四阶段：生态建设
 
 - 完善的文档网站
 - 交互式 Playground
@@ -1061,12 +1830,12 @@ const request = new Request(url, options);
 - 社区插件模板
 - 性能基准测试
 
-## 10. 使用示例
+## 11. 使用示例
 
-### 10.1 基础使用
+### 11.1 基础使用
 
 ```typescript
-import fetch from "@okutils/fetch";
+import fetch from "@okutils/fetch-core";
 
 // GET 请求
 const users = await fetch.get("/api/users", {
@@ -1087,10 +1856,10 @@ const data = await fetch.request({
 });
 ```
 
-### 10.2 创建实例
+### 11.2 创建实例
 
 ```typescript
-import { createFetch } from "@okutils/fetch";
+import { createFetch } from "@okutils/fetch-core";
 
 const apiClient = createFetch({
   baseURL: "https://api.example.com",
@@ -1117,10 +1886,10 @@ const apiClient = createFetch({
 const userData = await apiClient.get("/user/profile");
 ```
 
-### 10.3 使用插件
+### 11.3 使用插件
 
 ```typescript
-import { createFetch } from "@okutils/fetch";
+import { createFetch } from "@okutils/fetch-core";
 import cachePlugin from "@okutils/fetch-plugin-cache";
 import retryPlugin from "@okutils/fetch-plugin-retry";
 import dedupPlugin from "@okutils/fetch-plugin-dedup";
@@ -1228,10 +1997,10 @@ await fetch.get("/api/data", {
 // 9. 请求级 onSuccess
 ```
 
-### 10.4 错误处理
+### 11.4 错误处理
 
 ```typescript
-import fetch, { HTTPError, TimeoutError } from "@okutils/fetch";
+import fetch, { HTTPError, TimeoutError } from "@okutils/fetch-core";
 
 async function fetchUserData(userId: number) {
   try {
@@ -1264,7 +2033,7 @@ async function fetchUserData(userId: number) {
 }
 ```
 
-### 10.5 类型安全的请求
+### 11.5 类型安全的请求
 
 ```typescript
 interface IUser {
@@ -1305,7 +2074,7 @@ const newUser = await fetch.post<IUser, ICreateUserDto>("/api/users", {
 // TypeScript 会自动推导 newUser 的类型为 IUser
 ```
 
-### 10.6 请求取消
+### 11.6 请求取消
 
 ```typescript
 // 使用 AbortController
@@ -1379,7 +2148,7 @@ class RequestManager {
 }
 ```
 
-### 10.7 进度监控
+### 11.7 进度监控
 
 ```typescript
 import progressPlugin from "@okutils/fetch-plugin-progress";
@@ -1406,32 +2175,132 @@ formData.append("file", largeFile);
 await fetch.post("/api/upload", formData);
 ```
 
-## 11. 附录
+## 12. 附录
 
-### 11.1 命名规范
+### 12.1 兼容性说明
 
-本项目遵循统一的命名规范，详见：[https://narukeu.github.io/articles/frontend-naming-conventions.html](https://narukeu.github.io/articles/frontend-naming-conventions.html)
-
-### 11.2 兼容性说明
-
-- 浏览器：支持所有现代浏览器（Chrome 85+, Firefox 80+, Safari 14+, Edge 85+）
-- Node.js：20.0.0+
+- 浏览器：支持所有现代浏览器
+- Node.js：20.0 +
 - TypeScript：5.0+
 
-### 11.3 额外 GitHub 仓库
+### 12.2 Monorepo 工作流程
 
-#### 11.3.1 规范
+#### 12.2.1 开发流程
+
+```bash
+# 安装依赖
+pnpm install
+
+# 开发模式 (所有包并行开发)
+pnpm dev
+
+# 构建所有包
+pnpm build
+
+# 仅构建核心包
+pnpm build:core
+
+# 仅构建插件包
+pnpm build:plugins
+
+# 代码检查
+pnpm lint
+pnpm format
+
+# 类型检查
+pnpm type-check
+
+# 清理构建产物
+pnpm clean
+```
+
+#### 12.2.2 发布流程
+
+```bash
+# 使用 Changesets 管理版本
+pnpm changeset
+
+# 生成版本和 CHANGELOG
+pnpm version
+
+# 发布到 npm
+pnpm release
+```
+
+### 12.3 额外 GitHub 仓库
+
+#### 12.3.1 规范
 
 - `https://github.com/tc39/ecma262`
 - `https://github.com/tc39/ecma402`
 - `https://github.com/whatwg/fetch`
 - `https://github.com/whatwg/streams`
 
-#### 11.3.2 TypeScript
+#### 12.3.2 TypeScript
 
 - `https://www.typescriptlang.org/docs/handbook/intro.html`
 - `https://github.com/microsoft/tsdoc`
 
-#### 11.3.3 构建工具
+#### 12.3.3 构建工具
 
 - `https://github.com/rollup/rollup`
+
+### 12.4 命名规范
+
+#### 12.5.1 TypeScript 类型命名
+
+- Interface: 使用 I 前缀（如 `IConfig`, `ILoader`, `IDevServerConfig`）。
+  - **如果接口为公共或基础接口，建议在名称中包含 `Base` 或 `Public` 字样**（如 `IBaseOptions`, `IPublicFormDataType`），以便一目了然地识别其用途和继承关系。
+- Type: 使用 T 前缀（如 `TBuildMode`, `TAssetInfo`, `TLoaderResult`）。
+- Enum：使用 E 前缀（如 `EBuildStatus`, `ELoaderType`, `EHMREvent`）。
+- Enum 成员：使用 UPPER_SNAKE_CASE（如 `SUCCESS`, `FAILURE`, `PENDING`）。
+- Generic 泛型：使用单个大写字母，从 T 开始（如 `T`, `U`, `K`, `V`），如需表达更复杂含义可用 PascalCase 组合词（如 `TResultData`、`TOptions`），集合类泛型可用复数（如 `TItems`）。
+- Interface 主要用于结构描述（如对象的属性、方法等），Type 适合联合类型、交叉类型、条件类型等更复杂场景。接口支持声明合并，类型别名不支持。
+- 命名空间与模块（namespace/module）：使用 PascalCase（如 `Utils`, `ConfigParser`）。
+
+##### 为什么要在类型前面加前缀？
+
+**尽管**这种做法并不被广泛推荐，**但在很多情况下**，为了明确区分业务相关的组件、变量和服务与 TypeScript 类型，采用前缀可以提供清晰的标识。例如，在先前的一些项目中，尤其是基于 Node.js 后端以及使用 React 的前端项目，许多实体均采用了大驼峰命名法。为了进一步增强代码的可读性和维护性，通过为 TypeScript 类型和接口添加 `T` 和 `I` 前缀，能够有效避免混淆，确保开发过程中对不同类型元素的识别**更加直观准确**。
+
+#### 12.5.2 代码命名规范
+
+- 常量: 使用 UPPER_SNAKE_CASE（如 `DEFAULT_PORT`, `MAX_THREADS`, `BUILD_TIMEOUT`），全局常量建议加模块前缀（如 `BUILD_DEFAULT_PORT`）。
+- 私有方法: 使用 `_` 前缀（如 `_processModule`, `_handleError`, `_validateConfig`）。
+- 类名: 使用 PascalCase（如 `Compiler`, `DevServer`, `AssetLoader`）。
+  - **如果类为基础类或公共基类，建议名称中包含 `Base` 或 `Abstract` 字样**（如 `BaseController`, `AbstractService`），便于识别继承体系。
+- 函数/变量: 使用 camelCase（如 `buildProject`, `configPath`, `moduleInfo`）。
+  - **不限制名称长度，推荐根据实际用途使用有意义且描述性强的长名称**，如 `getUserProfileByIdAsync`、`defaultUserAvatarUrl`，好的名字比注释更直观。
+- 未使用的参数: 使用 `_` 前缀，防止产生歧义（如 `array.map((_item, index) => index * 2)`）。当只用第二或后续参数时，前面未用参数也应加 `_` 前缀。
+- 文件名: 使用 kebab-case（如 `build-config.ts`, `dev-server.ts`, `asset-loader.ts`），避免与保留字、已有 npm 包重名。
+- 目录名: 使用 kebab-case（如 `build-tools/`, `config-parser/`, `utils/`），避免单字符目录名。
+- 测试文件命名：
+  - 单元测试文件建议以 `.spec.ts` 结尾（如 `math-utils.spec.ts`），用于测试单个函数、类、模块的行为。
+  - 集成测试或端到端测试文件建议以 `.test.ts` 结尾（如 `api-integration.test.ts`），用于测试多个模块协作或完整业务流程。
+- 缩写统一大写（如 `APIClient`, `HTMLParser`），避免 `ApiClient`、`HtmlParser` 等写法，且避免无意义缩写。
+- 异步函数建议以 Async 结尾或用动词前缀（如 `fetchDataAsync`, `getUserInfo`）。
+- React 组件名用 PascalCase，hooks 用 use 前缀（如 `useUserInfo`）。
+- 类型守卫函数统一用 isXxx 命名（如 `isString`）。
+
+#### 12.5.3 布尔值命名规范
+
+- 使用 `is`, `has`, `can`, `should`, `will` 等前缀（如 `isLoading`, `hasError`, `canBuild`, `shouldOptimize`），避免 `isNotX`、`flagX` 等反模式，布尔变量应表达正向含义。
+
+#### 12.5.4 事件和回调命名
+
+- 事件处理函数: 使用 `handle` 或 `on` 前缀（如 `handleClick`, `onFileChange`），事件名用 PascalCase（如 `onUserLogin`）。
+- 回调函数: 使用描述性动词（如 `onComplete`, `onError`, `beforeBuild`），回调参数用 `event` 结尾（如 `onChangeEvent`）。
+
+#### 12.5.5 模块导出命名
+
+- 默认导出: 使用文件主要功能的名称
+- 命名导出: 使用具体的功能名称
+- 重新导出: 保持原有命名或使用 `as` 重命名以避免冲突。
+
+#### 12.6.6 其他
+
+- 变量声明一行一个（如 `let a = 1; let b = 2;`），避免 `let a = 1, b = 2;`。
+- 优先使用箭头函数，必要时再用 `function`。
+- 花括号、缩进等风格细节可参考微软官方规范（如 4 空格缩进，else 单独一行）。
+- 测试描述（describe/it）用英文，表达行为和预期结果。
+- 类型断言建议谨慎使用，优先类型收窄。
+- 代码注释建议用 TSDoc 风格，除非这个模块不用 TS 而用 JS。
