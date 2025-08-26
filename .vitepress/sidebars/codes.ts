@@ -3,8 +3,9 @@ import type { DefaultTheme } from "vitepress";
 export const codesSidebar: DefaultTheme.SidebarItem[] = [
   { text: "简介", items: [{ text: "代码片段", link: "/codes" }] },
   {
-    text: "代码格式化",
+    text: "配置文件",
     items: [
+      { text: "前端通用 .gitignore", link: "/codes/frontend-gitignore" },
       {
         text: "Eslint 配置",
         link: "/codes/eslint-flat-config"

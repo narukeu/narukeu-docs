@@ -30,10 +30,11 @@
 ### 1.4 技术栈
 
 - **开发语言**：TypeScript
-- **构建工具**：Rollup + TypeScript Compiler (tsc)
+- **构建工具**：Rollup + 原生 TypeScript 编译器
 - **包管理**：pnpm
-- **工具库**：@okutils/core (radash fork)
+- **工具库**：radash（以后会使用 `@okutils/core`，这个是和 radash 的 fork 但是暂未发布，等发布之后替换）
 - **最低运行环境**：支持原生 Fetch API 的环境
+- **暂时不考虑测试套件**
 
 ## 2. 核心架构设计
 
@@ -145,6 +146,15 @@ interface IRequestOptions {
   timeout?: number;
   signal?: AbortSignal;
 
+  // 超时和取消配置说明：
+  // 1. timeout：超时时间（毫秒），内部会创建一个 AbortSignal
+  // 2. signal：外部传入的取消信号，与 timeout 组合使用
+  // 3. 优先级规则：
+  //    - 如果同时提供 timeout 和 signal，会创建一个组合信号
+  //    - 任一信号触发都会取消请求
+  //    - timeout 触发抛出 TimeoutError
+  //    - 外部 signal 触发抛出 AbortError
+
   // 响应处理
   responseType?: TResponseType; // 'json' | 'text' | 'blob' | 'arrayBuffer' | 'formData'
   validateStatus?: (status: number) => boolean;
@@ -188,7 +198,49 @@ interface IFetchResponse<T = any> {
 
 ## 4. 插件系统设计
 
-### 4.1 插件接口定义
+### 4.1 插件系统执行模型
+
+`@okutils/fetch` 采用基于中间件的插件架构，结合生命周期钩子提供强大的扩展能力。
+
+#### 4.1.1 双重执行机制
+
+插件通过两种机制影响请求处理：
+
+1. **中间件机制**：包装整个请求/响应流程，支持请求拦截、响应处理、错误恢复等
+2. **钩子机制**：在特定生命周期节点执行，用于日志记录、状态通知、数据转换等
+
+#### 4.1.2 执行时序图
+
+```mermaid
+sequenceDiagram
+    participant U as 用户代码
+    participant IH as 实例钩子
+    participant P1 as 插件1
+    participant P2 as 插件2
+    participant RH as 请求钩子
+    participant N as 网络层
+
+    U->>IH: 1. 发起请求
+    IH->>P1: 2. beforeRequest 钩子
+    P1->>P2: 3. beforeRequest 钩子
+    P2->>RH: 4. beforeRequest 钩子
+    RH->>P2: 5. 进入中间件链
+    P2->>P1: 6. 调用下一个中间件
+    P1->>N: 7. 发送网络请求
+    N->>P1: 8. 返回响应
+    P1->>P2: 9. 响应处理
+    P2->>RH: 10. 响应处理
+    RH->>IH: 11. onSuccess/onError 钩子
+    IH->>U: 12. 返回结果
+```
+
+#### 4.1.3 冲突避免原则
+
+- **职责分离**：中间件处理请求流程，钩子处理副作用
+- **数据不变性**：钩子不应修改已确定的响应数据
+- **错误隔离**：单个插件的错误不应影响其他插件
+
+### 4.2 插件接口定义
 
 ```typescript
 interface IPlugin<TOptions = any> {
@@ -218,7 +270,34 @@ type TMiddleware = (
 ) => Promise<Response>;
 ```
 
-### 4.2 插件注册机制
+#### 4.2.1 插件钩子优先级
+
+当插件定义了与用户相同的生命周期钩子时，执行顺序为：
+
+```typescript
+interface IPluginInstance {
+  middleware: TMiddleware;
+  hooks?: Partial<ICoreHooks> & Record<string, any>;
+  // 新增：钩子优先级配置
+  hookPriority?: number; // 默认值：0，数值越小优先级越高
+}
+```
+
+**钩子执行顺序（以 beforeRequest 为例）**：
+
+1. 实例级钩子（用户在 createFetch 时配置）
+2. 插件钩子（按 hookPriority 排序，相同优先级按插件注册顺序）
+3. 请求级钩子（单次请求时配置）
+
+```typescript
+// 示例：实际执行顺序
+instanceConfig.hooks.beforeRequest()
+  → pluginA.hooks.beforeRequest() // priority: -1
+  → pluginB.hooks.beforeRequest() // priority: 0
+  → requestConfig.hooks.beforeRequest()
+```
+
+### 4.3 插件注册机制
 
 插件通过显式导入并在配置中注册：
 
@@ -241,7 +320,7 @@ const fetch = createFetch({
 });
 ```
 
-#### 4.2.1 插件包标准导出实例
+#### 4.3.1 插件包标准导出实例
 
 ```typescript
 // @okutils/fetch-plugin-cache/index.ts
@@ -265,7 +344,40 @@ export default (options?: ICachePluginOptions): IPluginInstance => {
 };
 ```
 
-### 4.3 插件配置扩展
+#### 4.3.2 插件执行顺序
+
+插件按照在 `plugins` 数组中的声明顺序执行：
+
+```typescript
+const fetch = createFetch({
+  plugins: [
+    cachePlugin(), // 第1个执行
+    retryPlugin(), // 第2个执行
+    dedupPlugin() // 第3个执行
+  ]
+});
+```
+
+**中间件执行顺序**：
+
+- **请求阶段**：按数组顺序执行（cachePlugin → retryPlugin → dedupPlugin）
+- **响应阶段**：按数组逆序执行（dedupPlugin → retryPlugin → cachePlugin）
+
+这种"洋葱模型"确保了插件能够正确地包装和处理请求/响应：
+
+```typescript
+// 执行流程示意
+cachePlugin.middleware(context, () =>
+  retryPlugin.middleware(context, () =>
+    dedupPlugin.middleware(context, () =>
+      // 实际 fetch 请求
+      actualFetch()
+    )
+  )
+);
+```
+
+### 4.4 插件配置扩展
 
 ```typescript
 // 直接使用 IPluginInstance
@@ -275,9 +387,9 @@ interface IRequestOptions {
 }
 ```
 
-### 4.4 官方插件列表
+### 4.5 官方插件列表
 
-#### 4.4.1 缓存插件 (@okutils/fetch-plugin-cache)
+#### 4.5.1 缓存插件 (@okutils/fetch-plugin-cache)
 
 提供请求缓存功能，支持内存缓存和持久化缓存：
 
@@ -291,7 +403,7 @@ interface ICachePluginOptions {
 }
 ```
 
-#### 4.4.2 去重插件 (@okutils/fetch-plugin-dedup)
+#### 4.5.2 去重插件 (@okutils/fetch-plugin-dedup)
 
 提供请求去重和节流功能：
 
@@ -303,7 +415,7 @@ interface IDedupPluginOptions {
 }
 ```
 
-#### 4.4.3 重试插件 (@okutils/fetch-plugin-retry)
+#### 4.5.3 重试插件 (@okutils/fetch-plugin-retry)
 
 提供请求重试功能：
 
@@ -319,7 +431,7 @@ interface IRetryPluginOptions {
 }
 ```
 
-#### 4.4.4 进度插件 (@okutils/fetch-plugin-progress)
+#### 4.5.4 进度插件 (@okutils/fetch-plugin-progress)
 
 提供上传和下载进度监控：
 
@@ -338,7 +450,7 @@ interface IProgressEvent {
 }
 ```
 
-#### 4.4.5 并发控制插件 (@okutils/fetch-plugin-concurrent)
+#### 4.5.5 并发控制插件 (@okutils/fetch-plugin-concurrent)
 
 控制并发请求数量：
 
@@ -471,6 +583,25 @@ class ParseError extends FetchError {
   name: string = "ParseError";
   responseText?: string;
 }
+
+// 请求取消错误
+class AbortError extends FetchError {
+  name: string = "AbortError";
+  signal?: AbortSignal;
+  originalError?: DOMException;
+
+  constructor(
+    message: string,
+    request: Request,
+    signal?: AbortSignal,
+    options?: IRequestOptions,
+    originalError?: DOMException
+  ) {
+    super(message, request, undefined, options);
+    this.signal = signal;
+    this.originalError = originalError;
+  }
+}
 ```
 
 ### 5.4 泛型约束
@@ -507,12 +638,19 @@ const user = await fetch.get<IUser>("/users/:id", {
 
 ### 6.1 错误分类与处理
 
-系统将错误分为四大类，每类都有明确的处理策略：
+系统将错误分为五大类，每类都有明确的处理策略：
 
 1. **网络错误**：请求无法发送或连接失败
 2. **HTTP 错误**：服务器返回 4xx 或 5xx 状态码
 3. **超时错误**：请求超过设定的超时时间
 4. **解析错误**：响应数据无法按预期格式解析
+5. **取消错误**：请求被用户或系统主动取消
+
+#### 6.1.1 取消错误的特殊性
+
+- 取消错误不代表请求失败，而是用户的主动行为
+- 在统计和错误上报中应区别对待
+- 通常不需要重试或错误提示
 
 ### 6.2 错误捕获机制
 
@@ -533,6 +671,10 @@ try {
   } else if (error instanceof ParseError) {
     // 处理解析错误
     console.error("响应解析失败");
+  } else if (error instanceof AbortError) {
+    // 处理请求取消
+    console.log("请求已被取消");
+    // 通常不需要错误提示，可能需要清理UI状态
   }
 }
 ```
@@ -545,6 +687,14 @@ try {
 const fetch = createFetch({
   hooks: {
     onError: async (error) => {
+      // 取消错误通常不需要上报和用户提示
+      if (error instanceof AbortError) {
+        console.log("请求被取消:", error.request.url);
+        // 可以在这里清理相关的UI状态
+        cleanupPendingUI(error.request.url);
+        return; // 提前返回，不执行后续错误处理
+      }
+
       // 统一错误上报
       await reportError(error);
 
@@ -565,6 +715,56 @@ const fetch = createFetch({
 - **自动重试**：通过重试插件实现，支持指数退避
 - **降级处理**：在 `onError` 钩子中返回降级数据
 - **断路器模式**：通过插件实现，避免雪崩效应
+
+### 6.5 错误转换机制
+
+为了保持错误处理的一致性，系统会将原生错误转换为统一的错误类型：
+
+```typescript
+// 错误转换示例
+const transformNativeError = (
+  nativeError: Error,
+  request: Request,
+  response?: Response,
+  options?: IRequestOptions
+): FetchError => {
+  // AbortController 取消请求时的原生错误转换
+  if (nativeError.name === "AbortError") {
+    return new AbortError(
+      "请求已被取消",
+      request,
+      options?.signal,
+      options,
+      nativeError as DOMException
+    );
+  }
+
+  // TypeError 通常表示网络错误
+  if (nativeError instanceof TypeError) {
+    return new NetworkError(
+      "网络请求失败",
+      request,
+      response,
+      options,
+      nativeError
+    );
+  }
+
+  // 其他未知错误的降级处理
+  return new FetchError(
+    nativeError.message || "未知请求错误",
+    request,
+    response,
+    options
+  );
+};
+```
+
+**转换原则**：
+
+- 保持错误的原始信息不丢失
+- 提供统一的错误接口和属性
+- 便于错误分类和处理逻辑
 
 ## 7. 配置系统
 
@@ -653,6 +853,20 @@ await instance.get("/api", {
 // 执行顺序：实例钩子 → 请求钩子
 ```
 
+**钩子冲突处理策略**：
+
+- **转换型钩子**（如 beforeRequest、afterParse）：后执行的钩子接收前一个钩子的返回值
+- **通知型钩子**（如 onStart、onSuccess、onError、onFinally）：所有钩子都会执行，不影响数据流
+- **异常处理**：任一钩子抛出异常将中断后续钩子执行
+
+```typescript
+// 转换型钩子示例
+let modifiedOptions = originalOptions;
+modifiedOptions = await instanceHook(modifiedOptions);
+modifiedOptions = await pluginHook(modifiedOptions);
+modifiedOptions = await requestHook(modifiedOptions);
+```
+
 ### 7.3 默认配置
 
 ```typescript
@@ -697,6 +911,10 @@ graph TD
 
 ### 8.2 钩子执行时机与作用
 
+#### 8.2.0 钩子的执行顺序
+
+实例钩子 → 插件钩子（按优先级）→ 请求钩子
+
 #### 8.2.1 onStart
 
 - **执行时机**：请求开始时，所有处理之前
@@ -708,6 +926,31 @@ graph TD
 - **执行时机**：请求发送前
 - **作用**：修改请求配置，如添加认证信息、序列化数据
 - **特点**：可以修改并返回新的配置
+
+```typescript
+// 完整的执行示例
+let options: IRequestOptions = originalOptions;
+
+// 1. 实例级钩子
+if (instanceHooks.beforeRequest) {
+  options = await instanceHooks.beforeRequest(options);
+}
+
+// 2. 插件钩子（按优先级排序）
+for (const plugin of sortedPlugins) {
+  if (plugin.hooks?.beforeRequest) {
+    options = await plugin.hooks.beforeRequest(options);
+  }
+}
+
+// 3. 请求级钩子
+if (requestHooks.beforeRequest) {
+  options = await requestHooks.beforeRequest(options);
+}
+
+// 使用最终的 options 创建请求
+const request = new Request(url, options);
+```
 
 #### 8.2.3 afterRequest
 
@@ -732,6 +975,25 @@ graph TD
 - **执行时机**：请求成功或失败时
 - **作用**：业务逻辑处理、错误恢复
 - **特点**：互斥执行
+
+**取消请求的特殊处理**：
+取消请求（AbortError）会触发 `onError` 钩子，但在业务逻辑中通常需要区别对待：
+
+```typescript
+{
+  onError: (error) => {
+    if (error instanceof AbortError) {
+      // 取消请求的处理：通常只需要清理状态，不显示错误信息
+      hideLoadingIndicator();
+      logUserAction("request_cancelled", { url: error.request.url });
+    } else {
+      // 真正的错误：显示错误信息，可能需要重试
+      showErrorMessage(error.message);
+      reportErrorToService(error);
+    }
+  };
+}
+```
 
 #### 8.2.7 onFinally
 
@@ -763,40 +1025,41 @@ graph TD
 
 ### 9.1 第一阶段：核心功能
 
-- [x] 基础请求功能封装
-- [x] 实例创建与管理
-- [x] 配置系统实现
-- [x] 生命周期钩子
-- [x] 错误处理系统
-- [x] TypeScript 类型定义
-- [x] 自动序列化与解析
-- [x] 请求取消与超时
+- 基础请求功能封装
+- 实例创建与管理
+- 配置系统实现
+- 生命周期钩子
+- 错误处理系统
+- TypeScript 类型定义
+- 自动序列化与解析
+- 请求取消与超时
 
 ### 9.2 第二阶段：插件系统
 
-- [ ] 插件接口定义
-- [ ] 插件注册机制
-- [ ] 中间件系统
-- [ ] 官方插件：缓存
-- [ ] 官方插件：去重
-- [ ] 官方插件：重试
-- [ ] 官方插件：进度
+- 插件接口定义
+- 插件注册机制
+- 中间件系统
+- 官方插件：缓存
+- 官方插件：去重
+- 官方插件：重试
+- 官方插件：并发控制
 
 ### 9.3 第三阶段：高级功能
 
-- [ ] 官方插件：并发控制
-- [ ] 流式响应支持
-- [ ] WebSocket 集成
-- [ ] GraphQL 支持插件
-- [ ] 请求模拟与测试工具
+- 官方插件：进度
+
+- 流式响应支持
+- WebSocket 集成
+- GraphQL 支持插件
+- 请求模拟与测试工具
 
 ### 9.4 第四阶段：生态建设
 
-- [ ] 完善的文档网站
-- [ ] 交互式 Playground
-- [ ] 迁移工具（从 axios/ky）
-- [ ] 社区插件模板
-- [ ] 性能基准测试
+- 完善的文档网站
+- 交互式 Playground
+- 迁移工具（从 axios/ky）
+- 社区插件模板
+- 性能基准测试
 
 ## 10. 使用示例
 
@@ -907,6 +1170,64 @@ await fetch.get("/api/large-file", {
 });
 ```
 
+#### 插件执行顺序示例
+
+```typescript
+const fetch = createFetch({
+  hooks: {
+    beforeRequest: (options) => {
+      console.log("1. 实例级 beforeRequest");
+      return options;
+    },
+    onSuccess: (data) => {
+      console.log("4. 实例级 onSuccess");
+    }
+  },
+  plugins: [
+    {
+      middleware: async (context, next) => {
+        console.log("2. 缓存插件中间件开始");
+        const response = await next();
+        console.log("3. 缓存插件中间件结束");
+        return response;
+      },
+      hooks: {
+        beforeRequest: (options) => {
+          console.log("2. 缓存插件 beforeRequest");
+          return options;
+        },
+        onSuccess: (data) => {
+          console.log("5. 缓存插件 onSuccess");
+        }
+      }
+    }
+  ]
+});
+
+await fetch.get("/api/data", {
+  hooks: {
+    beforeRequest: (options) => {
+      console.log("3. 请求级 beforeRequest");
+      return options;
+    },
+    onSuccess: (data) => {
+      console.log("6. 请求级 onSuccess");
+    }
+  }
+});
+
+// 执行输出：
+// 1. 实例级 beforeRequest
+// 2. 缓存插件 beforeRequest
+// 3. 请求级 beforeRequest
+// 4. 缓存插件中间件开始    // 进入中间件链
+// 5. 实际网络请求          // 在中间件链最深处
+// 6. 缓存插件中间件结束    // 从中间件链返回
+// 7. 实例级 onSuccess      // 成功钩子开始执行
+// 8. 缓存插件 onSuccess
+// 9. 请求级 onSuccess
+```
+
 ### 10.4 错误处理
 
 ```typescript
@@ -1002,9 +1323,58 @@ setTimeout(() => {
 
 try {
   const data = await promise;
+  console.log("请求成功:", data);
 } catch (error) {
-  if (error.name === "AbortError") {
+  if (error instanceof AbortError) {
     console.log("请求已取消");
+    // 访问原生错误信息（如需要）
+    console.log("原生错误:", error.originalError);
+    // 访问取消的信号
+    console.log("信号状态:", error.signal?.aborted);
+  } else {
+    console.error("其他错误:", error);
+  }
+}
+
+// 高级用法：批量取消
+class RequestManager {
+  private controllers = new Map<string, AbortController>();
+
+  async get<T>(id: string, url: string, options?: IRequestOptions): Promise<T> {
+    // 取消同ID的之前请求
+    this.cancel(id);
+
+    const controller = new AbortController();
+    this.controllers.set(id, controller);
+
+    try {
+      return await fetch.get<T>(url, {
+        ...options,
+        signal: controller.signal
+      });
+    } catch (error) {
+      if (error instanceof AbortError) {
+        console.log(`请求 ${id} 已被取消`);
+      }
+      throw error;
+    } finally {
+      this.controllers.delete(id);
+    }
+  }
+
+  cancel(id: string): void {
+    const controller = this.controllers.get(id);
+    if (controller) {
+      controller.abort();
+      this.controllers.delete(id);
+    }
+  }
+
+  cancelAll(): void {
+    for (const controller of this.controllers.values()) {
+      controller.abort();
+    }
+    this.controllers.clear();
   }
 }
 ```
@@ -1045,9 +1415,23 @@ await fetch.post("/api/upload", formData);
 ### 11.2 兼容性说明
 
 - 浏览器：支持所有现代浏览器（Chrome 85+, Firefox 80+, Safari 14+, Edge 85+）
-- Node.js：18.0.0+
+- Node.js：20.0.0+
 - TypeScript：5.0+
 
-### 11.3 许可证
+### 11.3 额外 GitHub 仓库
 
-MIT License
+#### 11.3.1 规范
+
+- `https://github.com/tc39/ecma262`
+- `https://github.com/tc39/ecma402`
+- `https://github.com/whatwg/fetch`
+- `https://github.com/whatwg/streams`
+
+#### 11.3.2 TypeScript
+
+- `https://www.typescriptlang.org/docs/handbook/intro.html`
+- `https://github.com/microsoft/tsdoc`
+
+#### 11.3.3 构建工具
+
+- `https://github.com/rollup/rollup`
