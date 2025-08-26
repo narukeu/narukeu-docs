@@ -18,23 +18,25 @@
 @okutils/fetch-monorepo/                 # Workspace Root
 ├── packages/
 │   ├── core/                           # @okutils/fetch-core (核心包)
-│   ├── shared/                         # @okutils/fetch-shared (共享配置)
 │   └── plugins/                        # 插件目录 (非包，仅用于组织)
 │       ├── cache/                      # @okutils/fetch-plugin-cache
 │       ├── retry/                      # @okutils/fetch-plugin-retry
 │       ├── dedup/                      # @okutils/fetch-plugin-dedup
 │       ├── progress/                   # @okutils/fetch-plugin-progress
 │       └── concurrent/                 # @okutils/fetch-plugin-concurrent
+├── shared/                             # 共享配置目录 (非包)
+│   ├── tsconfig.base.json              # TypeScript 基础配置
+│   └── rollup.config.base.mjs          # Rollup 构建配置
 ├── package.json                        # Workspace root configuration
 ├── pnpm-workspace.yaml                 # pnpm workspace configuration
-└── shared configs...                   # 共享配置文件
+└── shared configs...                   # 其他共享配置文件
 ```
 
 #### 1.2.2 包依赖关系
 
 - **@okutils/fetch-monorepo**: Workspace root，不发布，仅用于开发和构建协调
 - **@okutils/fetch-core**: 核心功能包，提供主要的 API 和功能
-- **@okutils/fetch-shared**: 共享配置包，包含 TypeScript、ESLint、Rollup 等配置
+- **shared/**: 共享配置目录，包含 TypeScript、Rollup 等构建配置，通过文件引用的方式被各包使用
 - **@okutils/fetch-plugin-\***: 各种插件包，依赖核心包并扩展功能
 
 ### 1.3 设计理念
@@ -712,9 +714,80 @@ export default tseslint.config(
 }
 ```
 
-### 2.3 共享 Rollup 配置
+### 2.3 共享配置管理
 
-#### packages/shared/rollup.config.base.mjs
+#### 2.3.1 共享配置设计理念
+
+本项目采用**文件引用**而非**包依赖**的方式管理共享配置，这种方案有以下优势：
+
+- **避免循环依赖**：共享配置不再是可发布的包，避免了构建工具依赖共享配置，而共享配置又需要构建工具的问题
+- **简化依赖管理**：各个包不需要在 `package.json` 中声明对共享配置的依赖
+- **更符合最佳实践**：参考 Rush Stack、Lerna 等成熟 monorepo 项目的做法
+- **降低维护成本**：不需要单独管理共享配置的版本和发布
+
+#### 2.3.2 共享 TypeScript 配置
+
+#### shared/tsconfig.base.json
+
+```json
+{
+  "compilerOptions": {
+    // File Layout
+    "baseUrl": "./",
+    "outDir": "./dist",
+
+    // Environment Settings
+    "module": "ESNext",
+    "target": "ES2020",
+    "esModuleInterop": true,
+    "moduleResolution": "node",
+    "downlevelIteration": true,
+
+    // For Node.js and Browser support
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "types": ["node"],
+
+    // Output Options
+    "sourceMap": true,
+    "declaration": true,
+    "declarationMap": true,
+
+    // Project References
+    "composite": true,
+
+    // Strict Checks
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "noImplicitReturns": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+
+    // Advanced Options
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "allowSyntheticDefaultImports": true
+  }
+}
+```
+
+各包通过相对路径引用：
+
+```json
+{
+  "extends": "../../shared/tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "./src",
+    "outDir": "./dist"
+  }
+}
+```
+
+#### 2.3.3 共享 Rollup 配置
+
+#### shared/rollup.config.base.mjs
 
 ```javascript
 import { readFileSync } from "fs";
@@ -1802,12 +1875,12 @@ const request = new Request(url, options);
 - TypeScript 类型定义
 - 自动序列化与解析
 - 请求取消与超时
-
-### 10.2 第二阶段：插件系统
-
 - 插件接口定义
 - 插件注册机制
 - 中间件系统
+
+### 10.2 第二阶段：插件系统
+
 - 官方插件：缓存
 - 官方插件：去重
 - 官方插件：重试
@@ -1816,7 +1889,6 @@ const request = new Request(url, options);
 ### 10.3 第三阶段：高级功能
 
 - 官方插件：进度
-
 - 流式响应支持
 - WebSocket 集成
 - GraphQL 支持插件
