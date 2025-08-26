@@ -4,7 +4,9 @@
 
 ### 1.1 项目简介
 
-`@okutils/fetch` 是一个基于原生 Fetch API 的现代化 HTTP 客户端库。它提供了类型安全、生命周期钩子、插件系统等高级功能，同时保持轻量和高性能。本库借鉴了 axios 的易用性和 ky 的现代化设计理念，为开发者提供最佳的开发体验。
+`@okutils/fetch` 是一个基于原生 Fetch API 的现代化 HTTP 客户端库。它提供了类型安全、生命周期钩子、插件系统等高级功能，同时保持轻量和高性能。
+
+项目对标 `axios` 和 `ky` 的设计理念，力求融合两者的优点。`axios` 的易用性和强大的功能集是其广受欢迎的原因，而 `ky` 则以其现代化和简洁著称。`@okutils/fetch` 试图在两者之间找到一个平衡点：提供完整的生命周期和插件生态系统，类似于 `axios`；同时保持 API 的现代化和轻量化，类似于 `ky`。
 
 ### 1.2 设计理念
 
@@ -16,7 +18,7 @@
 
 ### 1.3 核心特性
 
-- 基于原生 Fetch API，无需 polyfill
+- 基于原生 Fetch API，本项目只官方支持在原生支持 Fetch API （新的浏览器和 Node.js 18+），用户可以自己通过 polyfill 的方式在浏览器中添加 fetch 甚至对这个库已经 hack，以支持旧环境，但是因此出现的 bug 不在官方的修复范畴。
 - 完整的生命周期钩子系统
 - 灵活的插件机制
 - 严格的 TypeScript 类型支持
@@ -48,21 +50,26 @@
 
 ```
 @okutils/fetch/
-├── core/               # 核心功能
+├── index.ts
+├── core/              # 核心功能
 │   ├── request.ts     # 请求处理
 │   ├── response.ts    # 响应处理
 │   ├── error.ts       # 错误处理
 │   ├── config.ts      # 配置管理
+|   ├── index.ts
 │   └── hooks.ts       # 生命周期钩子
 ├── instance/          # 实例管理
 │   ├── create.ts      # 创建实例
+|   ├── index.ts
 │   └── default.ts     # 默认实例
 ├── types/             # 类型定义
 │   ├── config.ts      # 配置类型
 │   ├── hooks.ts       # 钩子类型
+|   ├── index.ts
 │   └── plugin.ts      # 插件类型
 └── utils/             # 工具函数
     ├── headers.ts     # Headers 处理
+    ├── index.ts
     └── url.ts         # URL 处理
 ```
 
