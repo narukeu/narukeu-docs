@@ -6,7 +6,7 @@ export const articlesSidebar: DefaultTheme.SidebarItem[] = [
     text: "规范",
     items: [
       {
-        text: "自用前端命名规范",
+        text: "Node.js 项目通用代码规范",
         link: "/articles/frontend-naming-conventions"
       }
     ]
