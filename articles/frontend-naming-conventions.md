@@ -388,18 +388,15 @@ const props = withDefaults(defineProps<IDialogProps>(), {
 
 ## 工具库开发规范
 
-1. 函数应该是纯函数，避免副作用。
+1. 函数应该是纯函数，尽量避免副作用。
 2. 提供完整的 TypeScript 类型定义。
 3. 函数命名应该清晰表达其功能。
-4. 提供详细的 JSDoc 文档。
+4. 提供详细的 TSDoc 文档。
 5. 支持树摇（tree-shaking），每个函数独立导出。
-6. 提供完整的单元测试覆盖。
-7. 使用 `radash` 风格的 API 设计。
-8. 错误处理应该一致且可预测。
-9. 支持链式调用（如果适用）。
-10. 避免依赖过多的第三方库。
-11. 提供 ESM 和 CommonJS 两种模块格式。
-12. 使用 bundlephobia 检查包大小。
+6. 错误处理应该一致且可预测。
+7. 支持链式调用（如果适用）。
+8. 避免依赖过多的第三方库。
+9. 原则上可以只提供 ESM 格式，除非有需求必须要兼容 CommonJS 和 UMD。
 
 ## 微信小程序项目规范
 
@@ -460,6 +457,7 @@ const props = withDefaults(defineProps<IDialogProps>(), {
 13. 日志使用内置的 Logger 或集成 winston。
 14. 单元测试和集成测试使用 Jest。
 15. 使用 `helmet` 增强安全性。
+16. 适配器优先使用 `Fastify` 而不是 `Express`
 
 ### Fastify 项目规范
 
