@@ -128,6 +128,7 @@ export default tseslint.config(
 ```
 
 16. 不得使用 `@ts-ignore`，必须要使用时（比如说测试用例代码里面要测试错误情况）应该添加说明。
+17. 明确以使用箭头函数为优先，除非确实有使用 `function` 关键字定义函数的必要。
 
 ## TypeScript 类型命名
 
@@ -163,7 +164,6 @@ export default tseslint.config(
 - React 组件名用 PascalCase，hooks 用 use 前缀（如 `useUserInfo`）。
 - 类型守卫函数统一用 isXxx 命名（如 `isString`）。
 - 变量声明一行一个（如 `const a = 1; const b = 2;`），避免 `let a = 1, b = 2;`。
-- 优先使用箭头函数，必要时再用 `function`。
 - 花括号、缩进等风格细节可参考微软官方规范。
 
 ## 布尔值命名规范
