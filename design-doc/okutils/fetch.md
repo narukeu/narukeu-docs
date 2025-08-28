@@ -48,6 +48,436 @@
 - **开发者友好**：直观的 API 设计，详细的错误信息，完善的文档
 - **Monorepo 优势**：统一开发体验，原子化版本控制，共享配置和工具链
 
+### 1.3.1 同构环境适配策略
+
+**环境检测与适配：**
+
+```typescript
+/**
+ * 环境类型
+ * @internal
+ */
+type TEnvironment = "browser" | "node" | "worker" | "unknown";
+
+/**
+ * 环境检测器
+ * @internal
+ */
+const detectEnvironment = (): TEnvironment => {
+  // 检测 Node.js 环境
+  if (typeof process !== "undefined" && process.versions?.node) {
+    return "node";
+  }
+
+  // 检测 Web Worker 环境
+  if (
+    typeof WorkerGlobalScope !== "undefined" &&
+    self instanceof WorkerGlobalScope
+  ) {
+    return "worker";
+  }
+
+  // 检测浏览器环境
+  if (typeof window !== "undefined" && typeof document !== "undefined") {
+    return "browser";
+  }
+
+  return "unknown";
+};
+
+/**
+ * 环境特定的适配器
+ * @internal
+ */
+interface IEnvironmentAdapter {
+  /** 获取全局 fetch 函数 */
+  getFetch: () => typeof fetch;
+
+  /** 获取 Headers 构造函数 */
+  getHeaders: () => typeof Headers;
+
+  /** 获取 Request 构造函数 */
+  getRequest: () => typeof Request;
+
+  /** 获取 Response 构造函数 */
+  getResponse: () => typeof Response;
+
+  /** 获取 AbortController 构造函数 */
+  getAbortController: () => typeof AbortController;
+
+  /** 获取 URL 构造函数 */
+  getURL: () => typeof URL;
+
+  /** 是否支持 Streams API */
+  hasStreamsSupport: () => boolean;
+
+  /** 获取用户代理字符串 */
+  getUserAgent: () => string;
+
+  /** 获取当前 URL（如果适用） */
+  getCurrentURL: () => string | null;
+}
+
+/**
+ * 浏览器环境适配器
+ * @internal
+ */
+const createBrowserAdapter = (): IEnvironmentAdapter => ({
+  getFetch: () => globalThis.fetch,
+  getHeaders: () => globalThis.Headers,
+  getRequest: () => globalThis.Request,
+  getResponse: () => globalThis.Response,
+  getAbortController: () => globalThis.AbortController,
+  getURL: () => globalThis.URL,
+  hasStreamsSupport: () =>
+    typeof ReadableStream !== "undefined" &&
+    typeof TransformStream !== "undefined",
+  getUserAgent: () => navigator.userAgent,
+  getCurrentURL: () => window.location.href
+});
+
+/**
+ * Node.js 环境适配器
+ * @internal
+ */
+const createNodeAdapter = (): IEnvironmentAdapter => ({
+  getFetch: () => globalThis.fetch, // Node.js 18+ 原生支持
+  getHeaders: () => globalThis.Headers,
+  getRequest: () => globalThis.Request,
+  getResponse: () => globalThis.Response,
+  getAbortController: () => globalThis.AbortController,
+  getURL: () => globalThis.URL,
+  hasStreamsSupport: () => true, // Node.js 原生支持 Streams
+  getUserAgent: () => `Node.js/${process.version}`,
+  getCurrentURL: () => null
+});
+
+/**
+ * 环境适配器工厂
+ * @internal
+ */
+const createEnvironmentAdapter = (): IEnvironmentAdapter => {
+  const env = detectEnvironment();
+
+  switch (env) {
+    case "browser":
+    case "worker":
+      return createBrowserAdapter();
+    case "node":
+      return createNodeAdapter();
+    default:
+      throw new Error(`Unsupported environment: ${env}`);
+  }
+};
+```
+
+**环境差异处理：**
+
+```typescript
+/**
+ * 同构请求处理器
+ * @internal
+ */
+const createIsomorphicFetcher = (adapter: IEnvironmentAdapter) => {
+  const fetch = adapter.getFetch();
+  const Headers = adapter.getHeaders();
+  const Request = adapter.getRequest();
+
+  return async (
+    url: string | URL,
+    options: IRequestOptions = {}
+  ): Promise<Response> => {
+    // 环境特定的 Headers 处理
+    const headers = new Headers(options.headers);
+
+    // 在 Node.js 环境中添加 User-Agent
+    if (detectEnvironment() === "node" && !headers.has("User-Agent")) {
+      headers.set("User-Agent", adapter.getUserAgent());
+    }
+
+    // 环境特定的 URL 处理
+    let finalUrl: string;
+    if (url instanceof URL) {
+      finalUrl = url.toString();
+    } else if (options.baseURL) {
+      finalUrl = new URL(url, options.baseURL).toString();
+    } else {
+      finalUrl = url;
+    }
+
+    // 创建请求对象
+    const request = new Request(finalUrl, {
+      method: options.method || "GET",
+      headers,
+      body: options.body ?? null,
+      signal: options.signal,
+      mode: options.mode,
+      credentials: options.credentials,
+      cache: options.cache,
+      redirect: options.redirect,
+      referrer: options.referrer,
+      referrerPolicy: options.referrerPolicy,
+      integrity: options.integrity,
+      keepalive: options.keepalive
+    });
+
+    return fetch(request);
+  };
+};
+```
+
+### 1.3.2 大型响应处理与内存管理
+
+**流式响应处理策略：**
+
+```typescript
+/**
+ * 大型响应处理配置
+ * @public
+ */
+interface ILargeResponseConfig {
+  /** 响应大小阈值（字节），超过此值将使用流式处理 */
+  sizeThreshold?: number | undefined; // 默认 10MB
+
+  /** 是否启用流式处理 */
+  isStreamingEnabled?: boolean | undefined;
+
+  /** 内存使用限制（字节） */
+  memoryLimit?: number | undefined; // 默认 100MB
+
+  /** 背压处理策略 */
+  backpressureStrategy?: "buffer" | "drop" | "error" | undefined;
+
+  /** 分块处理大小（字节） */
+  chunkSize?: number | undefined; // 默认 64KB
+}
+
+/**
+ * 流式响应处理器
+ * @internal
+ */
+const createStreamingResponseHandler = (config: ILargeResponseConfig = {}) => {
+  const DEFAULT_SIZE_THRESHOLD = 10 * 1024 * 1024; // 10MB
+  const DEFAULT_MEMORY_LIMIT = 100 * 1024 * 1024; // 100MB
+  const DEFAULT_CHUNK_SIZE = 64 * 1024; // 64KB
+
+  const {
+    sizeThreshold = DEFAULT_SIZE_THRESHOLD,
+    memoryLimit = DEFAULT_MEMORY_LIMIT,
+    chunkSize = DEFAULT_CHUNK_SIZE,
+    backpressureStrategy = "buffer",
+    isStreamingEnabled = true
+  } = config;
+
+  return {
+    /**
+     * 检查是否应该使用流式处理
+     */
+    shouldUseStreaming: (response: Response): boolean => {
+      if (!isStreamingEnabled) return false;
+
+      const contentLength = response.headers.get("content-length");
+      if (contentLength) {
+        const size = parseInt(contentLength, 10);
+        return size > sizeThreshold;
+      }
+
+      // 如果没有 Content-Length，默认使用流式处理以防万一
+      return true;
+    },
+
+    /**
+     * 创建内存感知的读取流
+     */
+    createMemoryAwareStream: (
+      response: Response
+    ): ReadableStream<Uint8Array> => {
+      if (!response.body) {
+        throw new Error("Response body is null");
+      }
+
+      let totalSize = 0;
+
+      return new ReadableStream({
+        start(controller) {
+          if (!response.body) {
+            controller.close();
+            return;
+          }
+
+          const reader = response.body.getReader();
+
+          const pump = async (): Promise<void> => {
+            try {
+              const { done, value } = await reader.read();
+
+              if (done) {
+                controller.close();
+                return;
+              }
+
+              totalSize += value.byteLength;
+
+              // 检查内存限制
+              if (totalSize > memoryLimit) {
+                controller.error(
+                  new Error(
+                    `Response too large: ${totalSize} bytes exceeds limit of ${memoryLimit} bytes`
+                  )
+                );
+                return;
+              }
+
+              // 处理背压
+              try {
+                controller.enqueue(value);
+              } catch (error) {
+                if (
+                  error instanceof Error &&
+                  error.name === "QuotaExceededError"
+                ) {
+                  switch (backpressureStrategy) {
+                    case "drop":
+                      console.warn("Dropping chunk due to backpressure");
+                      break;
+                    case "error":
+                      controller.error(
+                        new Error("Backpressure limit exceeded")
+                      );
+                      return;
+                    case "buffer":
+                    default:
+                      // 等待一段时间再重试
+                      await new Promise((resolve) => setTimeout(resolve, 10));
+                      controller.enqueue(value);
+                      break;
+                  }
+                }
+              }
+
+              pump();
+            } catch (error) {
+              controller.error(error);
+            }
+          };
+
+          pump();
+        },
+
+        cancel() {
+          // 清理资源
+          totalSize = 0;
+        }
+      });
+    },
+
+    /**
+     * 处理分块读取
+     */
+    processInChunks: async function* (
+      stream: ReadableStream<Uint8Array>
+    ): AsyncGenerator<Uint8Array, void, unknown> {
+      const reader = stream.getReader();
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+
+          if (done) break;
+
+          // 如果块太大，进一步分割
+          if (value.byteLength > chunkSize) {
+            for (let i = 0; i < value.byteLength; i += chunkSize) {
+              const chunk = value.slice(i, i + chunkSize);
+              yield chunk;
+            }
+          } else {
+            yield value;
+          }
+        }
+      } finally {
+        reader.releaseLock();
+      }
+    },
+
+    /**
+     * 监控内存使用情况
+     */
+    createMemoryMonitor: () => {
+      let peakMemoryUsage = 0;
+      let currentMemoryUsage = 0;
+
+      return {
+        track: (bytes: number) => {
+          currentMemoryUsage += bytes;
+          peakMemoryUsage = Math.max(peakMemoryUsage, currentMemoryUsage);
+        },
+
+        release: (bytes: number) => {
+          currentMemoryUsage = Math.max(0, currentMemoryUsage - bytes);
+        },
+
+        getStats: () => ({
+          current: currentMemoryUsage,
+          peak: peakMemoryUsage,
+          remaining: memoryLimit - currentMemoryUsage
+        })
+      };
+    }
+  };
+};
+
+/**
+ * Request/Response 对象的一次性消费处理
+ * @internal
+ */
+const createResponseCloner = () => {
+  const clonedResponses = new WeakSet<Response>();
+
+  return {
+    /**
+     * 安全地克隆响应对象
+     * @remarks Response 对象只能被消费一次，此方法确保可以多次访问响应内容
+     */
+    safeClone: (response: Response): Response => {
+      if (clonedResponses.has(response)) {
+        throw new Error("Response has already been cloned");
+      }
+
+      const cloned = response.clone();
+      clonedResponses.add(response);
+      clonedResponses.add(cloned);
+
+      return cloned;
+    },
+
+    /**
+     * 检查响应是否已被消费
+     */
+    isConsumed: (response: Response): boolean => {
+      return response.bodyUsed;
+    },
+
+    /**
+     * 创建响应的多个副本
+     */
+    createMultipleCopies: (response: Response, count: number): Response[] => {
+      const copies: Response[] = [];
+      let current = response;
+
+      for (let i = 0; i < count - 1; i++) {
+        const cloned = current.clone();
+        copies.push(cloned);
+        current = cloned;
+      }
+
+      copies.push(current);
+      return copies;
+    }
+  };
+};
+```
+
 ### 1.4 核心特性
 
 - 基于原生 Fetch API，本项目只官方支持在原生支持 Fetch API （新的浏览器和 Node.js 18+），用户可以自己通过 polyfill 的方式在浏览器中添加 fetch 甚至对这个库已经 hack，以支持旧环境，但是因此出现的 bug 不在官方的修复范畴。
@@ -57,7 +487,12 @@
 - 自动的请求/响应转换
 - 统一的错误处理
 - 支持请求取消和超时控制
-- 实例化和单例模式并存
+- 实例化和单例模式并存：
+
+```typescript
+import fetch from "@okutils/fetch-core"; // 默认单例
+import { createFetch } from "@okutils/fetch-core"; // 创建新实例
+```
 
 ### 1.5 技术栈
 
@@ -67,7 +502,7 @@
 - **代码规范**：ESLint + Prettier
 - **工具库**：radash（以后会使用 `@okutils/core`，这个是和 radash 的 fork 但是暂未发布，等发布之后替换）
 - **最低运行环境**：支持原生 Fetch API 的环境
-- **暂时不考虑测试套件**
+- **测试策略**：完整的单元测试和集成测试套件，确保库的可靠性和稳定性
 
 ## 2. Monorepo 配置与最佳实践
 
@@ -145,8 +580,10 @@
 
 ```yaml
 packages:
-  - "packages/*"
+  - "packages/core"
   - "packages/plugins/*"
+  - "!**/test/**"
+  - "!**/dist/**"
 ```
 
 #### .gitignore
@@ -1147,9 +1584,9 @@ export default tseslint.config(
 
     /**
      * 增量编译
-     * 提高大型项目的编译性能
+     * 提高大型项目的编译性能，但是启用了 composite 就不再需要这个
      */
-    "incremental": true,
+    "incremental": false,
 
     // ===========================================
     // 完整性检查 (Completeness)
@@ -1190,7 +1627,7 @@ export default tseslint.config(
 
 #### shared/rollup.config.base.mjs
 
-```javascript
+```typescript
 import { readFileSync } from "fs";
 import { resolve } from "path";
 import typescript from "@rollup/plugin-typescript";
@@ -1198,11 +1635,11 @@ import dts from "rollup-plugin-dts";
 
 /**
  * 创建基础的 Rollup 配置
- * @param {string} packageDir - 包目录路径
- * @param {object} options - 配置选项
- * @returns {Array} Rollup 配置数组
+ * @param packageDir - 包目录路径
+ * @param options - 配置选项
+ * @returns Rollup 配置数组
  */
-export function createRollupConfig(packageDir, options = {}) {
+export const createRollupConfig = (packageDir: string, options: any = {}) => {
   const pkg = JSON.parse(
     readFileSync(resolve(packageDir, "package.json"), "utf-8")
   );
@@ -1212,8 +1649,8 @@ export function createRollupConfig(packageDir, options = {}) {
     plugins = [],
     input = "src/index.ts",
     formats = ["esm", "cjs"],
-    generateDts = true,
-    skipDtsForUtility = false
+    shouldGenerateDts = true,
+    shouldSkipDtsForUtility = false
   } = options;
 
   // 基础外部依赖
@@ -1234,13 +1671,15 @@ export function createRollupConfig(packageDir, options = {}) {
   if (formats.includes("esm") || formats.includes("cjs")) {
     configs.push({
       input: resolve(packageDir, input),
-      external: (id) => {
+      external: (id: string) => {
         if (
           baseExternal.some((ext) => id === ext || id.startsWith(ext + "/"))
         ) {
           return true;
         }
-        return external.some((ext) => id === ext || id.startsWith(ext + "/"));
+        return external.some(
+          (ext: string) => id === ext || id.startsWith(ext + "/")
+        );
       },
       plugins: [
         typescript({
@@ -1272,16 +1711,18 @@ export function createRollupConfig(packageDir, options = {}) {
   }
 
   // TypeScript 声明文件配置
-  if (generateDts && !skipDtsForUtility) {
+  if (shouldGenerateDts && !shouldSkipDtsForUtility) {
     configs.push({
       input: resolve(packageDir, input),
-      external: (id) => {
+      external: (id: string) => {
         if (
           baseExternal.some((ext) => id === ext || id.startsWith(ext + "/"))
         ) {
           return true;
         }
-        return external.some((ext) => id === ext || id.startsWith(ext + "/"));
+        return external.some(
+          (ext: string) => id === ext || id.startsWith(ext + "/")
+        );
       },
       plugins: [dts()],
       output: {
@@ -1292,12 +1733,12 @@ export function createRollupConfig(packageDir, options = {}) {
   }
 
   return configs;
-}
+};
 ```
 
 各包通过相对路径引用：
 
-```javascript
+```typescript
 // packages/core/rollup.config.mjs
 import { createRollupConfig } from "../../shared/rollup.config.base.mjs";
 
@@ -1385,7 +1826,10 @@ import fetch from "@okutils/fetch-core";
 
 ```typescript
 interface IFetchInstance {
-  request<T = any>(url: string, options?: IRequestOptions): Promise<T>;
+  request<T = any>(
+    url: string,
+    options?: IRequestOptions | undefined
+  ): Promise<T>;
   request<T = any>(options: IRequestOptions & { url: string }): Promise<T>;
 }
 ```
@@ -1394,17 +1838,31 @@ interface IFetchInstance {
 
 ```typescript
 interface IFetchInstance {
-  get<T = any>(url: string, options?: IRequestOptions): Promise<T>;
-  post<T = any>(url: string, body?: any, options?: IRequestOptions): Promise<T>;
-  put<T = any>(url: string, body?: any, options?: IRequestOptions): Promise<T>;
+  get<T = any>(url: string, options?: IRequestOptions | undefined): Promise<T>;
+  post<T = any>(
+    url: string,
+    body?: any,
+    options?: IRequestOptions | undefined
+  ): Promise<T>;
+  put<T = any>(
+    url: string,
+    body?: any,
+    options?: IRequestOptions | undefined
+  ): Promise<T>;
   patch<T = any>(
     url: string,
     body?: any,
-    options?: IRequestOptions
+    options?: IRequestOptions | undefined
   ): Promise<T>;
-  delete<T = any>(url: string, options?: IRequestOptions): Promise<T>;
-  head<T = any>(url: string, options?: IRequestOptions): Promise<T>;
-  options<T = any>(url: string, options?: IRequestOptions): Promise<T>;
+  delete<T = any>(
+    url: string,
+    options?: IRequestOptions | undefined
+  ): Promise<T>;
+  head<T = any>(url: string, options?: IRequestOptions | undefined): Promise<T>;
+  options<T = any>(
+    url: string,
+    options?: IRequestOptions | undefined
+  ): Promise<T>;
 }
 ```
 
@@ -1413,52 +1871,56 @@ interface IFetchInstance {
 ```typescript
 interface IRequestOptions {
   // 基础配置
-  method?: THttpMethod;
-  headers?: HeadersInit | Record<string, string | undefined>;
+  method?: THttpMethod | undefined;
+  headers?: HeadersInit | Record<string, string | undefined> | undefined;
   body?: any;
 
   // URL 相关
-  baseURL?: string;
-  params?: Record<string, any>; // Query 参数
+  baseURL?: string | undefined;
+  params?: Record<string, any> | undefined; // Query 参数
 
   // 超时和取消
-  timeout?: number;
-  signal?: AbortSignal;
+  timeout?: number | undefined;
+  signal?: AbortSignal | undefined;
 
   // 超时和取消配置说明：
   // 1. timeout：超时时间（毫秒），内部会创建一个 AbortSignal
   // 2. signal：外部传入的取消信号，与 timeout 组合使用
   // 3. 优先级规则：
-  //    - 如果同时提供 timeout 和 signal，会创建一个组合信号
+  //    - 如果同时提供 timeout 和 signal，会使用 AbortSignal.any() 创建组合信号
   //    - 任一信号触发都会取消请求
   //    - timeout 触发抛出 TimeoutError
   //    - 外部 signal 触发抛出 AbortError
+  // 4. 兼容性：在不支持 AbortSignal.any() 的环境中会降级到监听模式
 
   // 响应处理
-  responseType?: TResponseType; // 'json' | 'text' | 'blob' | 'arrayBuffer' | 'formData'
-  validateStatus?: (status: number) => boolean;
+  responseType?: TResponseType | undefined; // 'json' | 'text' | 'blob' | 'arrayBuffer' | 'formData'
+  validateStatus?: ((status: number) => boolean) | undefined;
 
   // 序列化
-  serializer?: ISerializer;
+  serializer?: ISerializer | undefined;
 
   // CSRF
-  csrf?: ICSRFConfig | boolean;
+  csrf?: ICSRFConfig | boolean | undefined;
 
   // 钩子
-  hooks?: Partial<ICoreHooks>;
+  hooks?: Partial<ICoreHooks> | undefined;
 
   // 插件
-  plugins?: IPluginConfig[];
+  plugins?: IPluginConfig[] | undefined;
+
+  // 配置验证
+  validation?: IConfigValidation | undefined;
 
   // 其他 Fetch 选项
-  mode?: RequestMode;
-  credentials?: RequestCredentials;
-  cache?: RequestCache;
-  redirect?: RequestRedirect;
-  referrer?: string;
-  referrerPolicy?: ReferrerPolicy;
-  integrity?: string;
-  keepalive?: boolean;
+  mode?: RequestMode | undefined;
+  credentials?: RequestCredentials | undefined;
+  cache?: RequestCache | undefined;
+  redirect?: RequestRedirect | undefined;
+  referrer?: string | undefined;
+  referrerPolicy?: ReferrerPolicy | undefined;
+  integrity?: string | undefined;
+  keepalive?: boolean | undefined;
 }
 ```
 
@@ -1520,6 +1982,24 @@ sequenceDiagram
 ### 5.2 插件接口定义
 
 ```typescript
+/**
+ * 插件依赖配置
+ * @public
+ */
+interface IPluginDependency {
+  /** 依赖的插件名称 */
+  name: string;
+
+  /** 依赖的版本范围（SemVer 格式） */
+  version?: string | undefined;
+
+  /** 是否为可选依赖 */
+  isOptional?: boolean | undefined;
+
+  /** 依赖不满足时的处理策略 */
+  onMissing?: "error" | "warn" | "ignore" | undefined;
+}
+
 interface IPlugin<TOptions = any> {
   name: string;
   version: string;
@@ -1527,8 +2007,202 @@ interface IPlugin<TOptions = any> {
 }
 
 interface IPluginInstance {
+  name: string; // 增加名称用于冲突检测
+  version: string; // 版本信息
   middleware: TMiddleware;
-  hooks?: Partial<ICoreHooks> & Record<string, any>;
+  hooks?: Partial<ICoreHooks>;
+  hookPriority?: number;
+
+  // 插件间依赖管理
+  dependencies?: IPluginDependency[] | undefined; // 依赖的插件列表
+  conflicts?: string[] | undefined; // 不兼容的插件列表
+  provides?: string[] | undefined; // 提供的功能标识
+  requires?: string[] | undefined; // 必需的功能标识
+}
+
+/**
+ * 插件管理器
+ * @internal
+ */
+class PluginManager {
+  private plugins: Map<string, IPluginInstance> = new Map();
+  private dependencyGraph: Map<string, Set<string>> = new Map();
+  private capabilityProviders: Map<string, string> = new Map();
+
+  /**
+   * 注册插件
+   * @param plugin - 插件实例
+   */
+  register(plugin: IPluginInstance): void {
+    // 检查插件冲突
+    this.checkConflicts(plugin);
+
+    // 验证依赖
+    this.validateDependencies(plugin);
+
+    // 注册插件
+    this.plugins.set(plugin.name, plugin);
+
+    // 更新依赖图
+    this.updateDependencyGraph(plugin);
+
+    // 注册提供的功能
+    if (plugin.provides) {
+      for (const capability of plugin.provides) {
+        if (this.capabilityProviders.has(capability)) {
+          throw new Error(
+            `Capability '${capability}' is already provided by plugin '${this.capabilityProviders.get(capability)}'`
+          );
+        }
+        this.capabilityProviders.set(capability, plugin.name);
+      }
+    }
+  }
+
+  /**
+   * 获取已注册的插件列表（按依赖顺序排序）
+   */
+  getOrderedPlugins(): IPluginInstance[] {
+    const sorted = this.topologicalSort();
+    return sorted.map((name) => this.plugins.get(name)!);
+  }
+
+  /**
+   * 检查插件冲突
+   */
+  private checkConflicts(plugin: IPluginInstance): void {
+    if (!plugin.conflicts) return;
+
+    for (const conflictName of plugin.conflicts) {
+      if (this.plugins.has(conflictName)) {
+        throw new Error(
+          `Plugin '${plugin.name}' conflicts with already registered plugin '${conflictName}'`
+        );
+      }
+    }
+
+    // 检查现有插件是否与新插件冲突
+    for (const [name, existingPlugin] of this.plugins) {
+      if (existingPlugin.conflicts?.includes(plugin.name)) {
+        throw new Error(
+          `Plugin '${plugin.name}' conflicts with already registered plugin '${name}'`
+        );
+      }
+    }
+  }
+
+  /**
+   * 验证插件依赖
+   */
+  private validateDependencies(plugin: IPluginInstance): void {
+    if (!plugin.dependencies) return;
+
+    for (const dep of plugin.dependencies) {
+      const dependencyPlugin = this.plugins.get(dep.name);
+
+      if (!dependencyPlugin) {
+        if (!dep.isOptional) {
+          const action = dep.onMissing || "error";
+          const message = `Plugin '${plugin.name}' requires dependency '${dep.name}' which is not registered`;
+
+          switch (action) {
+            case "error":
+              throw new Error(message);
+            case "warn":
+              console.warn(message);
+              break;
+            case "ignore":
+              break;
+          }
+        }
+        continue;
+      }
+
+      // 版本检查（简单实现）
+      if (
+        dep.version &&
+        !this.isVersionCompatible(dependencyPlugin.version, dep.version)
+      ) {
+        throw new Error(
+          `Plugin '${plugin.name}' requires '${dep.name}' version '${dep.version}', but found '${dependencyPlugin.version}'`
+        );
+      }
+    }
+
+    // 检查必需的功能
+    if (plugin.requires) {
+      for (const capability of plugin.requires) {
+        if (!this.capabilityProviders.has(capability)) {
+          throw new Error(
+            `Plugin '${plugin.name}' requires capability '${capability}' which is not provided by any registered plugin`
+          );
+        }
+      }
+    }
+  }
+
+  /**
+   * 更新依赖图
+   */
+  private updateDependencyGraph(plugin: IPluginInstance): void {
+    if (!this.dependencyGraph.has(plugin.name)) {
+      this.dependencyGraph.set(plugin.name, new Set());
+    }
+
+    if (plugin.dependencies) {
+      for (const dep of plugin.dependencies) {
+        if (this.plugins.has(dep.name)) {
+          this.dependencyGraph.get(plugin.name)!.add(dep.name);
+        }
+      }
+    }
+  }
+
+  /**
+   * 拓扑排序，确保依赖顺序
+   */
+  private topologicalSort(): string[] {
+    const visited = new Set<string>();
+    const visiting = new Set<string>();
+    const result: string[] = [];
+
+    const visit = (pluginName: string): void => {
+      if (visiting.has(pluginName)) {
+        throw new Error(
+          `Circular dependency detected involving plugin '${pluginName}'`
+        );
+      }
+
+      if (visited.has(pluginName)) return;
+
+      visiting.add(pluginName);
+
+      const dependencies = this.dependencyGraph.get(pluginName) || new Set();
+      for (const dep of dependencies) {
+        visit(dep);
+      }
+
+      visiting.delete(pluginName);
+      visited.add(pluginName);
+      result.push(pluginName);
+    };
+
+    for (const pluginName of this.plugins.keys()) {
+      if (!visited.has(pluginName)) {
+        visit(pluginName);
+      }
+    }
+
+    return result.reverse(); // 依赖应该在依赖者之前
+  }
+
+  /**
+   * 简单的版本兼容性检查
+   */
+  private isVersionCompatible(actual: string, required: string): boolean {
+    // 简单实现，生产环境应使用完整的 SemVer 库
+    return actual >= required;
+  }
 }
 
 interface IRequestContext {
@@ -1672,11 +2346,11 @@ interface IRequestOptions {
 
 ```typescript
 interface ICachePluginOptions {
-  maxAge?: number; // 缓存有效期
-  maxSize?: number; // 最大缓存数
-  exclude?: RegExp[]; // 排除的 URL 模式
-  keyGenerator?: (options: IRequestOptions) => string;
-  storage?: "memory" | "localStorage" | "sessionStorage";
+  maxAge?: number | undefined; // 缓存有效期
+  maxSize?: number | undefined; // 最大缓存数
+  exclude?: RegExp[] | undefined; // 排除的 URL 模式
+  keyGenerator?: ((options: IRequestOptions) => string) | undefined;
+  storage?: "memory" | "localStorage" | "sessionStorage" | undefined;
 }
 ```
 
@@ -1686,9 +2360,9 @@ interface ICachePluginOptions {
 
 ```typescript
 interface IDedupPluginOptions {
-  dedupingInterval?: number; // 去重时间窗口
-  throttleInterval?: number; // 节流间隔
-  keyGenerator?: (options: IRequestOptions) => string;
+  dedupingInterval?: number | undefined; // 去重时间窗口
+  throttleInterval?: number | undefined; // 节流间隔
+  keyGenerator?: ((options: IRequestOptions) => string) | undefined;
 }
 ```
 
@@ -1698,34 +2372,281 @@ interface IDedupPluginOptions {
 
 ```typescript
 interface IRetryPluginOptions {
-  maxRetries?: number; // 最大重试次数
-  retryDelay?: number | ((attempt: number) => number); // 重试延迟
-  retryCondition?: (error: Error) => boolean; // 重试条件
-  exponentialBackoff?: boolean; // 指数退避
-  hooks?: {
-    beforeRetry?: (error: Error, retryCount: number) => void;
-  };
+  maxRetries?: number | undefined; // 最大重试次数
+  retryDelay?: number | ((attempt: number) => number) | undefined; // 重试延迟
+  retryCondition?: ((error: Error) => boolean) | undefined; // 重试条件
+  isExponentialBackoff?: boolean | undefined; // 是否启用指数退避
+  hooks?:
+    | {
+        beforeRetry?: ((error: Error, retryCount: number) => void) | undefined;
+      }
+    | undefined;
 }
 ```
 
 #### 5.5.4 进度插件 (@okutils/fetch-plugin-progress)
 
-提供上传和下载进度监控：
+提供上传和下载进度监控，基于 WHATWG Streams API 实现：
 
 ```typescript
-interface IProgressPluginOptions {
-  onUploadProgress?: (progress: IProgressEvent) => void;
-  onDownloadProgress?: (progress: IProgressEvent) => void;
+/**
+ * 进度事件接口
+ * @public
+ */
+interface IProgressEvent {
+  /** 已加载的字节数 */
+  loaded: number;
+
+  /** 总字节数（如果已知） */
+  total?: number | undefined;
+
+  /** 进度百分比（0-100） */
+  percentage?: number | undefined;
+
+  /** 传输速率（字节/秒） */
+  rate?: number | undefined;
+
+  /** 预计剩余时间（毫秒） */
+  estimated?: number | undefined;
 }
 
-interface IProgressEvent {
-  loaded: number;
-  total?: number;
-  percentage?: number;
-  rate?: number; // 速率 (bytes/sec)
-  estimated?: number; // 预计剩余时间 (ms)
+/**
+ * 进度插件配置
+ * @public
+ */
+interface IProgressPluginOptions {
+  /** 上传进度回调 */
+  onUploadProgress?: ((progress: IProgressEvent) => void) | undefined;
+
+  /** 下载进度回调 */
+  onDownloadProgress?: ((progress: IProgressEvent) => void) | undefined;
+
+  /** 进度更新间隔（毫秒），默认 100ms */
+  throttleInterval?: number | undefined;
+
+  /** 是否在不支持进度监控的情况下降级 */
+  shouldFallback?: boolean | undefined;
 }
+
+/**
+ * 基于 WHATWG Streams API 的进度监控实现
+ * @internal
+ */
+const createProgressTrackingStream = (
+  onProgress: (progress: IProgressEvent) => void,
+  total?: number | undefined,
+  throttleInterval: number = 100
+): {
+  writable: WritableStream<Uint8Array>;
+  readable: ReadableStream<Uint8Array>;
+} => {
+  let loaded = 0;
+  let lastUpdateTime = 0;
+  let startTime = Date.now();
+
+  const calculateProgress = (): IProgressEvent => {
+    const now = Date.now();
+    const duration = (now - startTime) / 1000; // 秒
+    const rate = duration > 0 ? loaded / duration : 0;
+
+    const progress: IProgressEvent = {
+      loaded,
+      rate,
+      total,
+      percentage: total ? Math.round((loaded / total) * 100) : undefined,
+      estimated:
+        total && rate > 0
+          ? Math.round(((total - loaded) / rate) * 1000)
+          : undefined
+    };
+
+    return progress;
+  };
+
+  const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>({
+    transform(chunk, controller) {
+      loaded += chunk.byteLength;
+
+      const now = Date.now();
+      if (now - lastUpdateTime >= throttleInterval) {
+        lastUpdateTime = now;
+        onProgress(calculateProgress());
+      }
+
+      controller.enqueue(chunk);
+    },
+
+    flush() {
+      // 确保最终进度被报告
+      onProgress(calculateProgress());
+    }
+  });
+
+  return { readable, writable };
+};
+
+/**
+ * 处理下载进度的中间件实现
+ * @internal
+ */
+const createDownloadProgressMiddleware = (
+  onDownloadProgress: (progress: IProgressEvent) => void,
+  throttleInterval: number = 100
+): TMiddleware => {
+  return async (context, next) => {
+    const response = await next();
+
+    // 检查浏览器支持
+    if (!response.body || !window.ReadableStream) {
+      if (context.meta.shouldFallback) {
+        console.warn("Streams API not supported, progress monitoring disabled");
+        return response;
+      }
+      throw new Error("Streams API not supported for progress monitoring");
+    }
+
+    const contentLength = response.headers.get("content-length");
+    const total = contentLength ? parseInt(contentLength, 10) : undefined;
+
+    if (!total) {
+      console.warn(
+        "Content-Length header missing, progress percentage unavailable"
+      );
+    }
+
+    const { readable } = createProgressTrackingStream(
+      onDownloadProgress,
+      total,
+      throttleInterval
+    );
+
+    // 创建新的响应，使用带进度监控的流
+    const trackedStream = response.body.pipeThrough(
+      new TransformStream<Uint8Array, Uint8Array>({
+        transform(chunk, controller) {
+          onDownloadProgress({
+            loaded: chunk.byteLength,
+            total
+            // 其他计算逻辑...
+          });
+          controller.enqueue(chunk);
+        }
+      })
+    );
+
+    return new Response(trackedStream, {
+      status: response.status,
+      statusText: response.statusText,
+      headers: response.headers
+    });
+  };
+};
+
+/**
+ * 处理上传进度的请求体包装
+ * @internal
+ */
+const wrapRequestBodyWithProgress = (
+  body: BodyInit,
+  onUploadProgress: (progress: IProgressEvent) => void,
+  throttleInterval: number = 100
+): ReadableStream<Uint8Array> => {
+  // 计算总大小
+  let total: number | undefined;
+
+  if (body instanceof Blob) {
+    total = body.size;
+  } else if (body instanceof ArrayBuffer) {
+    total = body.byteLength;
+  } else if (body instanceof FormData) {
+    // FormData 大小难以精确计算，只能提供已传输大小
+    total = undefined;
+  }
+
+  const { readable, writable } = createProgressTrackingStream(
+    onUploadProgress,
+    total,
+    throttleInterval
+  );
+
+  // 将原始 body 转换为流并连接到进度跟踪流
+  if (body instanceof ReadableStream) {
+    body.pipeTo(writable);
+  } else {
+    const writer = writable.getWriter();
+
+    if (body instanceof Blob) {
+      body.stream().pipeTo(
+        new WritableStream({
+          write(chunk) {
+            return writer.write(chunk);
+          },
+          close() {
+            return writer.close();
+          }
+        })
+      );
+    } else {
+      // 处理其他类型的 body
+      const uint8Array =
+        body instanceof ArrayBuffer
+          ? new Uint8Array(body)
+          : new TextEncoder().encode(String(body));
+
+      writer.write(uint8Array).then(() => writer.close());
+    }
+  }
+
+  return readable;
+};
 ```
+
+**使用示例：**
+
+```typescript
+import progressPlugin from "@okutils/fetch-plugin-progress";
+
+const fetch = createFetch({
+  plugins: [
+    progressPlugin({
+      onDownloadProgress: (progress) => {
+        updateProgressBar(progress.percentage || 0);
+        updateSpeedIndicator(progress.rate || 0);
+        updateTimeRemaining(progress.estimated || 0);
+      },
+      onUploadProgress: (progress) => {
+        updateUploadProgress(progress.percentage || 0);
+      },
+      throttleInterval: 200, // 每 200ms 更新一次
+      shouldFallback: true // 在不支持的环境中降级
+    })
+  ]
+});
+
+// 下载大文件
+const fileBlob = await fetch.get("/api/large-file", {
+  responseType: "blob"
+});
+
+// 上传文件
+const formData = new FormData();
+formData.append("file", largeFile);
+await fetch.post("/api/upload", formData);
+```
+
+**降级策略：**
+
+对于不支持 Streams API 的环境，插件提供以下降级方案：
+
+1. **完全禁用进度监控**：`shouldFallback: true` 时静默禁用
+2. **抛出错误**：`shouldFallback: false` 时抛出不支持错误
+3. **基于时间估算**：对于已知大小的传输，基于时间进行粗略估算
+
+**内存管理：**
+
+- 使用 `TransformStream` 进行流式处理，避免将整个响应加载到内存
+- 及时释放 `WritableStreamDefaultWriter` 资源
+- 支持流的背压机制，防止内存溢出
 
 #### 5.5.5 并发控制插件 (@okutils/fetch-plugin-concurrent)
 
@@ -1733,9 +2654,9 @@ interface IProgressEvent {
 
 ```typescript
 interface IConcurrentPluginOptions {
-  maxConcurrent?: number; // 最大并发数
-  queue?: "fifo" | "lifo"; // 队列策略
-  onQueueUpdate?: (size: number) => void;
+  maxConcurrent?: number | undefined; // 最大并发数
+  queue?: "fifo" | "lifo" | undefined; // 队列策略
+  onQueueUpdate?: ((size: number) => void) | undefined;
 }
 ```
 
@@ -1744,7 +2665,10 @@ interface IConcurrentPluginOptions {
 ### 6.1 核心类型定义
 
 ```typescript
-// HTTP 方法类型
+/**
+ * HTTP 方法类型
+ * @public
+ */
 type THttpMethod =
   | "GET"
   | "POST"
@@ -1754,7 +2678,10 @@ type THttpMethod =
   | "HEAD"
   | "OPTIONS";
 
-// 响应类型
+/**
+ * 响应类型
+ * @public
+ */
 type TResponseType =
   | "json"
   | "text"
@@ -1763,167 +2690,372 @@ type TResponseType =
   | "formData"
   | "stream";
 
-// 序列化器接口
+/**
+ * 序列化器接口
+ * @public
+ */
 interface ISerializer {
+  /**
+   * 将数据序列化为字符串
+   * @param data - 要序列化的数据
+   * @returns 序列化后的字符串
+   */
   stringify: (data: any) => string;
+
+  /**
+   * 将字符串解析为数据
+   * @param text - 要解析的字符串
+   * @returns 解析后的数据
+   */
   parse: (text: string) => any;
+
+  /**
+   * 内容类型
+   */
   contentType: string;
 }
 
-// CSRF 配置
+/**
+ * CSRF 保护配置
+ * @public
+ */
 interface ICSRFConfig {
-  auto?: boolean; // 自动从 cookie 读取
-  tokenKey?: string; // Header key
-  cookieKey?: string; // Cookie key
-  token?: string; // 手动设置的 token
+  // 基础配置
+  /** 是否自动从 cookie 读取 token */
+  isAutomatic?: boolean | undefined;
+
+  /** Header 键名，默认 'X-CSRF-Token' */
+  tokenKey?: string | undefined;
+
+  /** Cookie 键名，默认 'csrf_token' */
+  cookieKey?: string | undefined;
+
+  /** 手动设置的 token */
+  token?: string | undefined;
+
+  // 安全增强配置
+  /** SameSite 策略 */
+  sameSite?: "strict" | "lax" | "none" | undefined;
+
+  /** 是否仅在 HTTPS 下发送 */
+  isSecure?: boolean | undefined;
+
+  // 验证配置
+  /** 是否验证 Origin header */
+  shouldVerifyOrigin?: boolean | undefined;
+
+  /** 允许的源列表 */
+  allowedOrigins?: string[] | undefined;
+
+  // 自定义获取逻辑
+  /** 自定义 token 获取方法 */
+  tokenProvider?: (() => string | Promise<string>) | undefined;
+
+  // 双重提交 Cookie 模式
+  doubleSubmitCookie?:
+    | {
+        /** 是否启用双重提交 Cookie 模式 */
+        isEnabled: boolean | undefined;
+        /** Cookie 名称，默认 'csrf_token' */
+        cookieName?: string | undefined;
+        /** Header 名称，默认 'X-CSRF-Token' */
+        headerName?: string | undefined;
+      }
+    | undefined;
 }
 ```
 
 ### 6.2 生命周期钩子类型
 
 ```typescript
+/**
+ * 核心生命周期钩子接口
+ * @public
+ */
 interface ICoreHooks {
-  // 请求开始时
-  onStart?: (options: IRequestOptions) => void | Promise<void>;
+  /**
+   * 请求开始时触发
+   * @param options - 请求配置
+   * @remarks 只能读取配置，不能修改。用于初始化操作，如显示加载状态
+   */
+  onStart?: ((options: IRequestOptions) => void | Promise<void>) | undefined;
 
-  // 请求前
-  beforeRequest?: (
-    options: IRequestOptions
-  ) => IRequestOptions | Promise<IRequestOptions>;
+  /**
+   * 请求发送前触发
+   * @param options - 请求配置
+   * @returns 修改后的请求配置
+   * @remarks 可以修改并返回新的配置。用于添加认证信息、序列化数据等
+   */
+  beforeRequest?:
+    | ((options: IRequestOptions) => IRequestOptions | Promise<IRequestOptions>)
+    | undefined;
 
-  // 请求发送后，响应前
-  afterRequest?: (request: Request) => void | Promise<void>;
+  /**
+   * 请求发送后，响应前触发
+   * @param request - 发送的请求对象
+   * @remarks 异步执行，不阻塞响应。用于记录请求日志、性能监控等
+   */
+  afterRequest?: ((request: Request) => void | Promise<void>) | undefined;
 
-  // 响应接收后
-  afterResponse?: (
-    response: Response,
-    request: Request
-  ) => Response | Promise<Response>;
+  /**
+   * 响应接收后触发
+   * @param response - 响应对象
+   * @param request - 请求对象
+   * @returns 修改后的响应对象
+   * @remarks 可以修改响应对象。用于统一错误码处理、响应预处理等
+   */
+  afterResponse?:
+    | ((response: Response, request: Request) => Response | Promise<Response>)
+    | undefined;
 
-  // 响应解析前
-  beforeParse?: (response: Response) => Response | Promise<Response>;
+  /**
+   * 响应解析前触发
+   * @param response - 响应对象
+   * @returns 修改后的响应对象
+   * @remarks 用于自定义解析逻辑前的预处理
+   */
+  beforeParse?:
+    | ((response: Response) => Response | Promise<Response>)
+    | undefined;
 
-  // 响应解析后
-  afterParse?: (data: any, response: Response) => any | Promise<any>;
+  /**
+   * 响应解析后触发
+   * @param data - 解析后的数据
+   * @param response - 响应对象
+   * @returns 修改后的数据
+   * @remarks 用于数据转换、格式化等
+   */
+  afterParse?:
+    | ((data: any, response: Response) => any | Promise<any>)
+    | undefined;
 
-  // 请求成功时
-  onSuccess?: (data: any, response: Response) => void | Promise<void>;
+  /**
+   * 请求成功时触发
+   * @param data - 响应数据
+   * @param response - 响应对象
+   * @remarks 用于业务逻辑处理、成功状态记录等
+   */
+  onSuccess?:
+    | ((data: any, response: Response) => void | Promise<void>)
+    | undefined;
 
-  // 错误发生时
-  onError?: (error: FetchError) => void | Promise<void>;
+  /**
+   * 错误发生时触发
+   * @param error - 错误对象
+   * @remarks 用于错误处理、错误上报等。取消请求也会触发此钩子，但通常需要区别对待
+   */
+  onError?: ((error: FetchError) => void | Promise<void>) | undefined;
 
-  // 请求完成（无论成功失败）
-  onFinally?: () => void | Promise<void>;
+  /**
+   * 请求完成时触发（无论成功失败）
+   * @remarks 用于清理操作，如隐藏加载状态。总是最后执行
+   */
+  onFinally?: (() => void | Promise<void>) | undefined;
 }
 ```
 
 ### 6.3 错误类型定义
 
 ```typescript
-// 基础错误类
-class FetchError extends Error {
-  override name: string = "FetchError";
+/**
+ * 基础 Fetch 错误类
+ * @abstract
+ * @public
+ */
+abstract class FetchError extends Error {
+  /** 错误名称 */
+  abstract override name: string;
+
+  /** 相关的请求对象 */
   request: Request;
+
+  /** 相关的响应对象（如果有） */
   response?: Response | undefined;
+
+  /** 请求配置 */
   options: IRequestOptions;
 
+  /**
+   * 创建 Fetch 错误实例
+   * @param message - 错误消息
+   * @param request - 请求对象
+   * @param options - 请求配置
+   * @param response - 响应对象（可选）
+   */
   constructor(
     message: string,
     request: Request,
-    response?: Response | undefined,
-    options?: IRequestOptions
+    options: IRequestOptions,
+    response?: Response | undefined
   ) {
     super(message);
     this.request = request;
+    this.options = options;
     this.response = response;
-    this.options = options || {};
+
+    // 确保错误堆栈正确
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, this.constructor);
+    }
   }
 }
 
-// HTTP 错误
+/**
+ * HTTP 错误类
+ * @remarks 当服务器返回 4xx 或 5xx 状态码时抛出
+ * @public
+ */
 class HTTPError extends FetchError {
   override name: string = "HTTPError";
-  override response: Response;
+  override response: Response; // 重新定义为必需属性
+
+  /** HTTP 状态码 */
   status: number;
+
+  /** HTTP 状态文本 */
   statusText: string;
 
+  /**
+   * 创建 HTTP 错误实例
+   * @param message - 错误消息
+   * @param request - 请求对象
+   * @param options - 请求配置
+   * @param response - 响应对象
+   */
   constructor(
     message: string,
     request: Request,
-    response: Response,
-    options?: IRequestOptions
+    options: IRequestOptions,
+    response: Response // 注意：这里是必需参数
   ) {
-    super(message, request, response, options);
+    super(message, request, options, response);
     this.response = response;
     this.status = response.status;
     this.statusText = response.statusText;
   }
 }
 
-// 超时错误
+/**
+ * 超时错误类
+ * @remarks 当请求超过设定的超时时间时抛出
+ * @public
+ */
 class TimeoutError extends FetchError {
   override name: string = "TimeoutError";
+
+  /** 超时时间（毫秒） */
   timeout: number;
 
+  /**
+   * 创建超时错误实例
+   * @param message - 错误消息
+   * @param request - 请求对象
+   * @param options - 请求配置
+   * @param timeout - 超时时间
+   */
   constructor(
     message: string,
     request: Request,
-    timeout: number,
-    options?: IRequestOptions
+    options: IRequestOptions,
+    timeout: number
   ) {
-    super(message, request, undefined, options);
+    super(message, request, options);
     this.timeout = timeout;
   }
 }
 
-// 网络错误
+/**
+ * 网络错误类
+ * @remarks 当网络连接失败或请求无法发送时抛出
+ * @public
+ */
 class NetworkError extends FetchError {
   override name: string = "NetworkError";
+
+  /** 原始错误对象 */
   originalError?: Error | undefined;
 
+  /**
+   * 创建网络错误实例
+   * @param message - 错误消息
+   * @param request - 请求对象
+   * @param options - 请求配置
+   * @param originalError - 原始错误对象
+   * @param response - 响应对象（可选）
+   */
   constructor(
     message: string,
     request: Request,
-    response?: Response,
-    options?: IRequestOptions,
-    originalError?: Error | undefined
+    options: IRequestOptions,
+    originalError?: Error | undefined,
+    response?: Response | undefined
   ) {
-    super(message, request, response, options);
+    super(message, request, options, response);
     this.originalError = originalError;
   }
 }
 
-// 解析错误
+/**
+ * 解析错误类
+ * @remarks 当响应数据无法按预期格式解析时抛出
+ * @public
+ */
 class ParseError extends FetchError {
   override name: string = "ParseError";
+
+  /** 原始响应文本 */
   responseText?: string | undefined;
 
+  /**
+   * 创建解析错误实例
+   * @param message - 错误消息
+   * @param request - 请求对象
+   * @param options - 请求配置
+   * @param responseText - 响应文本
+   * @param response - 响应对象（可选）
+   */
   constructor(
     message: string,
     request: Request,
-    response?: Response,
-    options?: IRequestOptions,
-    responseText?: string | undefined
+    options: IRequestOptions,
+    responseText?: string | undefined,
+    response?: Response | undefined
   ) {
-    super(message, request, response, options);
+    super(message, request, options, response);
     this.responseText = responseText;
   }
 }
 
-// 请求取消错误
+/**
+ * 请求取消错误类
+ * @remarks 当请求被用户或系统主动取消时抛出
+ * @public
+ */
 class AbortError extends FetchError {
   override name: string = "AbortError";
+
+  /** 取消信号 */
   signal?: AbortSignal | undefined;
+
+  /** 原始 DOM 异常 */
   originalError?: DOMException | undefined;
 
+  /**
+   * 创建请求取消错误实例
+   * @param message - 错误消息
+   * @param request - 请求对象
+   * @param options - 请求配置
+   * @param signal - 取消信号
+   * @param originalError - 原始 DOM 异常
+   */
   constructor(
     message: string,
     request: Request,
+    options: IRequestOptions,
     signal?: AbortSignal | undefined,
-    options?: IRequestOptions,
     originalError?: DOMException | undefined
   ) {
-    super(message, request, undefined, options);
+    super(message, request, options);
     this.signal = signal;
     this.originalError = originalError;
   }
@@ -1935,9 +3067,12 @@ class AbortError extends FetchError {
 ```typescript
 // URL 参数类型安全
 interface ITypedRequestOptions<
-  TParams extends Record<string, any> = Record<string, any>,
-  TBody = any,
-  TResponse = any
+  TParams extends Record<
+    string,
+    string | number | boolean | undefined
+  > = Record<string, any>,
+  TBody = unknown,
+  TResponse = unknown
 > extends IRequestOptions {
   params?: TParams;
   body?: TBody;
@@ -1964,27 +3099,30 @@ const user = await fetch.get<IUser>("/users/:id", {
 
 #### 6.5.1 exactOptionalPropertyTypes 配置的影响
 
-当启用 `exactOptionalPropertyTypes: true` 配置时，TypeScript 会对可选属性进行更严格的类型检查：
+当启用 `exactOptionalPropertyTypes: true` 配置时，TypeScript 会严格区分"可选属性"和"属性值可以是 undefined"：
 
-```typescript
-// ❌ 错误：不能将 undefined 赋值给不接受 undefined 的类型
+````typescript
 interface IConfig {
-  timeout?: number;
+  timeout?: number;  // 可选属性，但值必须是 number（如果提供的话）
 }
 
-const config: IConfig = {
-  timeout: undefined // 错误！
+// ❌ 错误用法
+const config1: IConfig = {
+  timeout: undefined  // 错误！不能显式设置为 undefined
 };
 
-// ✅ 正确：明确声明可选属性类型包含 undefined
-interface IConfig {
-  timeout?: number | undefined;
+// ✅ 正确用法
+const config2: IConfig = {};  // 不设置该属性
+const config3: IConfig = { timeout: 5000 };  // 设置为有效值
+
+// 如果确实需要 undefined 值，需要显式声明
+interface IConfigWithUndefined {
+  timeout?: number | undefined;  // 明确允许 undefined
 }
 
-const config: IConfig = {
-  timeout: undefined // 正确
+const config4: IConfigWithUndefined = {
+  timeout: undefined  // 现在正确了
 };
-```
 
 #### 6.5.2 错误类继承规范
 
@@ -1998,7 +3136,7 @@ export class HTTPError extends FetchError {
   status: number;
   statusText: string;
 }
-```
+````
 
 #### 6.5.3 Request/Response 对象类型处理
 
@@ -2056,7 +3194,7 @@ const processQueue = () => {
 ```typescript
 // ✅ 推荐的插件接口定义
 interface IPluginOptions {
-  enabled?: boolean | undefined;
+  isEnabled?: boolean | undefined;
   config?: Record<string, any> | undefined;
   onError?: ((error: Error) => void) | undefined;
 }
@@ -2149,7 +3287,6 @@ const fetch = createFetch({
 为了保持错误处理的一致性，系统会将原生错误转换为统一的错误类型：
 
 ```typescript
-// 错误转换示例
 const transformNativeError = (
   nativeError: Error,
   request: Request,
@@ -2157,7 +3294,11 @@ const transformNativeError = (
   options?: IRequestOptions
 ): FetchError => {
   // AbortController 取消请求时的原生错误转换
-  if (nativeError.name === "AbortError") {
+  // 更严格的 AbortError 判断
+  if (
+    nativeError.name === "AbortError" ||
+    (nativeError instanceof DOMException && nativeError.name === "AbortError")
+  ) {
     return new AbortError(
       "请求已被取消",
       request,
@@ -2167,14 +3308,27 @@ const transformNativeError = (
     );
   }
 
-  // TypeError 通常表示网络错误
+  // TypeError 通常表示网络错误，但需要进一步区分
   if (nativeError instanceof TypeError) {
-    return new NetworkError(
-      "网络请求失败",
+    // 检查是否是 fetch 相关的 TypeError
+    if (
+      nativeError.message.includes("fetch") ||
+      nativeError.message.includes("network")
+    ) {
+      return new NetworkError(
+        "网络请求失败",
+        request,
+        response,
+        options,
+        nativeError
+      );
+    }
+    // 其他 TypeError 可能是参数错误
+    return new FetchError(
+      `请求参数错误: ${nativeError.message}`,
       request,
       response,
-      options,
-      nativeError
+      options
     );
   }
 
@@ -2196,7 +3350,319 @@ const transformNativeError = (
 
 ## 8. 配置系统
 
-### 8.1 配置优先级
+### 8.1 配置验证机制
+
+为了确保用户传入的配置正确且安全，系统提供了完整的配置验证机制：
+
+```typescript
+/**
+ * 配置验证接口
+ * @public
+ */
+interface IConfigValidation {
+  /** 是否启用配置验证，默认在开发环境启用 */
+  isEnabled?: boolean | undefined;
+
+  /** 是否在验证失败时抛出错误，默认 true */
+  shouldThrowOnError?: boolean | undefined;
+
+  /** 自定义验证规则 */
+  customRules?: IValidationRule[] | undefined;
+
+  /** 验证失败时的处理函数 */
+  onValidationError?: ((errors: IValidationError[]) => void) | undefined;
+}
+
+/**
+ * 验证规则接口
+ * @public
+ */
+interface IValidationRule {
+  /** 规则名称 */
+  name: string;
+
+  /** 验证函数 */
+  validate: (config: IRequestOptions) => IValidationError | null;
+
+  /** 规则优先级，数值越小优先级越高 */
+  priority?: number | undefined;
+}
+
+/**
+ * 验证错误接口
+ * @public
+ */
+interface IValidationError {
+  /** 错误类型 */
+  type: "warning" | "error";
+
+  /** 错误代码 */
+  code: string;
+
+  /** 错误消息 */
+  message: string;
+
+  /** 相关的配置路径 */
+  path: string;
+
+  /** 建议的修复方案 */
+  suggestion?: string | undefined;
+}
+
+/**
+ * 内置配置验证器
+ * @internal
+ */
+const createConfigValidator = (): ((
+  config: IRequestOptions
+) => IValidationError[]) => {
+  const rules: IValidationRule[] = [
+    // URL 验证
+    {
+      name: "url-format",
+      validate: (config) => {
+        if (config.baseURL) {
+          try {
+            new URL(config.baseURL);
+          } catch {
+            return {
+              type: "error",
+              code: "INVALID_BASE_URL",
+              message: `Invalid baseURL format: ${config.baseURL}`,
+              path: "baseURL",
+              suggestion:
+                'Ensure baseURL is a valid URL (e.g., "https://api.example.com")'
+            };
+          }
+        }
+        return null;
+      }
+    },
+
+    // 超时验证
+    {
+      name: "timeout-range",
+      validate: (config) => {
+        if (config.timeout !== undefined) {
+          if (config.timeout < 0) {
+            return {
+              type: "error",
+              code: "INVALID_TIMEOUT",
+              message: `Timeout must be non-negative, got: ${config.timeout}`,
+              path: "timeout",
+              suggestion: "Set timeout to a positive number or 0 for no timeout"
+            };
+          }
+          if (config.timeout > 300000) {
+            // 5 minutes
+            return {
+              type: "warning",
+              code: "LONG_TIMEOUT",
+              message: `Timeout is very long (${config.timeout}ms), this may cause poor user experience`,
+              path: "timeout",
+              suggestion: "Consider using a shorter timeout for better UX"
+            };
+          }
+        }
+        return null;
+      }
+    },
+
+    // Headers 验证
+    {
+      name: "headers-security",
+      validate: (config) => {
+        if (config.headers) {
+          const headers =
+            config.headers instanceof Headers
+              ? config.headers
+              : new Headers(config.headers);
+
+          // 检查敏感 Headers
+          const sensitiveHeaders = ["authorization", "cookie", "set-cookie"];
+          for (const [name] of headers) {
+            if (sensitiveHeaders.includes(name.toLowerCase())) {
+              return {
+                type: "warning",
+                code: "SENSITIVE_HEADER",
+                message: `Sensitive header "${name}" detected in configuration`,
+                path: `headers.${name}`,
+                suggestion:
+                  "Consider using hooks or plugins for dynamic authentication"
+              };
+            }
+          }
+        }
+        return null;
+      }
+    },
+
+    // CSRF 配置验证
+    {
+      name: "csrf-security",
+      validate: (config) => {
+        if (config.csrf && typeof config.csrf === "object") {
+          if (
+            config.csrf.doubleSubmitCookie?.isEnabled &&
+            !config.csrf.isSecure
+          ) {
+            return {
+              type: "warning",
+              code: "INSECURE_CSRF",
+              message:
+                "Double submit cookie is enabled but secure flag is not set",
+              path: "csrf.isSecure",
+              suggestion:
+                "Enable isSecure flag when using double submit cookie pattern"
+            };
+          }
+        }
+        return null;
+      }
+    },
+
+    // 插件冲突检测
+    {
+      name: "plugin-conflicts",
+      validate: (config) => {
+        if (config.plugins && config.plugins.length > 1) {
+          const pluginNames = config.plugins.map((p) => p.name);
+          const conflicts = new Set<string>();
+
+          for (const plugin of config.plugins) {
+            if (plugin.conflicts) {
+              for (const conflictName of plugin.conflicts) {
+                if (pluginNames.includes(conflictName)) {
+                  conflicts.add(
+                    `${plugin.name} conflicts with ${conflictName}`
+                  );
+                }
+              }
+            }
+          }
+
+          if (conflicts.size > 0) {
+            return {
+              type: "error",
+              code: "PLUGIN_CONFLICT",
+              message: `Plugin conflicts detected: ${Array.from(conflicts).join(", ")}`,
+              path: "plugins",
+              suggestion:
+                "Remove conflicting plugins or use alternative implementations"
+            };
+          }
+        }
+        return null;
+      }
+    }
+  ];
+
+  return (config: IRequestOptions): IValidationError[] => {
+    const errors: IValidationError[] = [];
+
+    for (const rule of rules.sort(
+      (a, b) => (a.priority || 0) - (b.priority || 0)
+    )) {
+      const error = rule.validate(config);
+      if (error) {
+        errors.push(error);
+      }
+    }
+
+    return errors;
+  };
+};
+
+/**
+ * AbortSignal 组合处理
+ * @internal
+ */
+const createCombinedAbortSignal = (
+  timeout?: number | undefined,
+  signal?: AbortSignal | undefined
+): { signal: AbortSignal; cleanup: () => void } => {
+  const signals: AbortSignal[] = [];
+  const controllers: AbortController[] = [];
+  let timeoutId: number | undefined;
+
+  // 添加超时信号
+  if (timeout && timeout > 0) {
+    const timeoutController = new AbortController();
+    controllers.push(timeoutController);
+    signals.push(timeoutController.signal);
+
+    timeoutId = window.setTimeout(() => {
+      timeoutController.abort(new DOMException("Timeout", "TimeoutError"));
+    }, timeout);
+  }
+
+  // 添加外部信号
+  if (signal) {
+    signals.push(signal);
+  }
+
+  // 如果只有一个信号，直接返回
+  if (signals.length === 1) {
+    return {
+      signal: signals[0],
+      cleanup: () => {
+        if (timeoutId) clearTimeout(timeoutId);
+      }
+    };
+  }
+
+  // 如果有多个信号，尝试使用 AbortSignal.any()
+  if (signals.length > 1) {
+    if (typeof AbortSignal.any === "function") {
+      // 现代浏览器支持 AbortSignal.any()
+      const combinedSignal = AbortSignal.any(signals);
+      return {
+        signal: combinedSignal,
+        cleanup: () => {
+          if (timeoutId) clearTimeout(timeoutId);
+        }
+      };
+    } else {
+      // 降级实现：创建新的控制器并监听所有信号
+      const fallbackController = new AbortController();
+
+      const abortHandler = () => {
+        if (!fallbackController.signal.aborted) {
+          fallbackController.abort();
+        }
+      };
+
+      // 监听所有信号
+      for (const sig of signals) {
+        if (sig.aborted) {
+          fallbackController.abort();
+          break;
+        }
+        sig.addEventListener("abort", abortHandler);
+      }
+
+      return {
+        signal: fallbackController.signal,
+        cleanup: () => {
+          if (timeoutId) clearTimeout(timeoutId);
+          // 清理事件监听器
+          for (const sig of signals) {
+            sig.removeEventListener("abort", abortHandler);
+          }
+        }
+      };
+    }
+  }
+
+  // 没有信号的情况
+  return {
+    signal: new AbortController().signal,
+    cleanup: () => {}
+  };
+};
+```
+
+### 8.2 配置优先级
 
 配置采用三级优先级系统，从高到低为：
 
@@ -2253,6 +3719,81 @@ await instance.post("/api", data, {
 // }
 ```
 
+#### 8.2.2.1 Headers 合并的边界情况处理
+
+**undefined 值处理**：
+
+```typescript
+// undefined 值会被忽略，不会覆盖已有值
+const instance = createFetch({
+  headers: {
+    Authorization: "Bearer token",
+    "Content-Type": "application/json"
+  }
+});
+
+await instance.post("/api", data, {
+  headers: {
+    "Content-Type": undefined, // 不会覆盖，保持 'application/json'
+    "X-Custom": "value" // 正常添加
+  }
+});
+
+// 最终 headers:
+// {
+//   'Authorization': 'Bearer token',
+//   'Content-Type': 'application/json',  // 保持原值
+//   'X-Custom': 'value'
+// }
+```
+
+**null 值处理：**：
+
+```typescript
+await instance.post("/api", data, {
+  headers: {
+    "Content-Type": null, // 显式移除该 header
+    "X-Custom": "value"
+  }
+});
+
+// 最终 headers:
+// {
+//   'Authorization': 'Bearer token',
+//   // 'Content-Type' 被移除
+//   'X-Custom': 'value'
+// }
+```
+
+**空字符串处理**：
+
+```typescript
+await instance.post("/api", data, {
+  headers: {
+    "Content-Type": "", // 设置为空字符串
+    "X-Custom": "value"
+  }
+});
+
+// 最终 headers:
+// {
+//   'Authorization': 'Bearer token',
+//   'Content-Type': '',  // 保持空字符串
+//   'X-Custom': 'value'
+// }
+```
+
+**Headers 对象和普通对象混合：**
+
+```typescript
+const headers = new Headers();
+headers.set("Custom-Header", "value");
+
+await instance.post("/api", data, {
+  headers: headers // Headers 对象会被正确合并
+});
+```
+
 #### 8.2.3 钩子函数合并
 
 钩子函数采用组合执行策略：
@@ -2295,7 +3836,7 @@ modifiedOptions = await pluginHook(modifiedOptions);
 modifiedOptions = await requestHook(modifiedOptions);
 ```
 
-### 8.3 默认配置
+### 8.5 默认配置
 
 ```typescript
 const defaultConfig: IRequestOptions = {
@@ -2307,7 +3848,7 @@ const defaultConfig: IRequestOptions = {
     "Content-Type": "application/json"
   },
   csrf: {
-    auto: false,
+    isAutomatic: false,
     tokenKey: "X-CSRF-Token",
     cookieKey: "csrf_token"
   }
@@ -2542,6 +4083,28 @@ const apiClient = createFetch({
 
 // 使用自定义实例
 const userData = await apiClient.get("/user/profile");
+
+// CSRF 保护示例
+const secureApiClient = createFetch({
+  baseURL: "https://api.example.com",
+  csrf: {
+    auto: true,
+    sameSite: "strict",
+    secure: true,
+    verifyOrigin: true,
+    allowedOrigins: ["https://app.example.com"],
+    doubleSubmitCookie: {
+      enabled: true,
+      cookieName: "csrf_token",
+      headerName: "X-CSRF-Token"
+    },
+    // 自定义 token 获取（适用于 SPA）
+    tokenProvider: async () => {
+      const meta = document.querySelector('meta[name="csrf-token"]');
+      return meta?.getAttribute("content") || "";
+    }
+  }
+});
 ```
 
 ### 11.3 使用插件
@@ -2833,7 +4396,1174 @@ formData.append("file", largeFile);
 await fetch.post("/api/upload", formData);
 ```
 
-## 12. 附录
+### 11.8 自定义插件开发
+
+以下是一个完整的自定义插件开发示例：
+
+```typescript
+// 示例：API 密钥轮转插件
+import type {
+  IPlugin,
+  IPluginInstance,
+  TMiddleware
+} from "@okutils/fetch-core";
+
+/**
+ * API 密钥轮转插件配置
+ */
+interface IApiKeyRotationOptions {
+  /** API 密钥列表 */
+  apiKeys: string[];
+
+  /** 轮转策略 */
+  strategy?: "round-robin" | "random" | "fallback";
+
+  /** 密钥失效后的重试次数 */
+  maxRetries?: number;
+
+  /** 密钥验证函数 */
+  validateKey?: (key: string) => Promise<boolean>;
+
+  /** 密钥失效检测函数 */
+  isKeyInvalid?: (error: Error, response?: Response) => boolean;
+}
+
+/**
+ * 创建 API 密钥轮转插件
+ */
+const createApiKeyRotationPlugin = (): IPlugin<IApiKeyRotationOptions> => ({
+  name: "@custom/fetch-plugin-api-key-rotation",
+  version: "1.0.0",
+
+  create: (
+    options: IApiKeyRotationOptions = { apiKeys: [] }
+  ): IPluginInstance => {
+    const {
+      apiKeys,
+      strategy = "round-robin",
+      maxRetries = 3,
+      validateKey,
+      isKeyInvalid = (error, response) => response?.status === 401
+    } = options;
+
+    if (apiKeys.length === 0) {
+      throw new Error("At least one API key must be provided");
+    }
+
+    let currentKeyIndex = 0;
+    const invalidKeys = new Set<string>();
+
+    const getNextKey = (): string => {
+      const availableKeys = apiKeys.filter((key) => !invalidKeys.has(key));
+
+      if (availableKeys.length === 0) {
+        throw new Error("All API keys are invalid");
+      }
+
+      switch (strategy) {
+        case "random":
+          return availableKeys[
+            Math.floor(Math.random() * availableKeys.length)
+          ];
+
+        case "fallback":
+          return availableKeys[0];
+
+        case "round-robin":
+        default:
+          const key = availableKeys[currentKeyIndex % availableKeys.length];
+          currentKeyIndex++;
+          return key;
+      }
+    };
+
+    const middleware: TMiddleware = async (context, next) => {
+      let retryCount = 0;
+      let lastError: Error | null = null;
+
+      while (retryCount <= maxRetries) {
+        try {
+          const apiKey = getNextKey();
+
+          // 验证密钥（如果提供了验证函数）
+          if (validateKey && !(await validateKey(apiKey))) {
+            invalidKeys.add(apiKey);
+            retryCount++;
+            continue;
+          }
+
+          // 添加 API 密钥到请求头
+          const headers = new Headers(context.request.headers);
+          headers.set("X-API-Key", apiKey);
+
+          // 创建新的请求对象
+          const newRequest = new Request(context.request, { headers });
+          context.request = newRequest;
+
+          const response = await next();
+
+          // 检查响应是否表明密钥无效
+          if (isKeyInvalid(lastError!, response)) {
+            invalidKeys.add(apiKey);
+            retryCount++;
+
+            if (retryCount <= maxRetries) {
+              console.warn(
+                `API key invalid, retrying with different key (attempt ${retryCount}/${maxRetries})`
+              );
+              continue;
+            }
+          }
+
+          return response;
+        } catch (error) {
+          lastError = error as Error;
+
+          // 检查是否是密钥相关错误
+          if (isKeyInvalid(lastError)) {
+            retryCount++;
+
+            if (retryCount <= maxRetries) {
+              console.warn(
+                `API key error, retrying (attempt ${retryCount}/${maxRetries}):`,
+                lastError.message
+              );
+              continue;
+            }
+          }
+
+          throw lastError;
+        }
+      }
+
+      throw lastError || new Error("Max retries exceeded for API key rotation");
+    };
+
+    return {
+      name: "@custom/fetch-plugin-api-key-rotation",
+      version: "1.0.0",
+      middleware,
+      provides: ["api-key-management"],
+      hooks: {
+        onError: async (error) => {
+          console.error("API Key Rotation Plugin Error:", error.message);
+        }
+      }
+    };
+  }
+});
+
+// 使用自定义插件
+const apiKeyRotationPlugin = createApiKeyRotationPlugin();
+
+const fetch = createFetch({
+  baseURL: "https://api.example.com",
+  plugins: [
+    apiKeyRotationPlugin({
+      apiKeys: ["key1-xxx-yyy-zzz", "key2-aaa-bbb-ccc", "key3-ddd-eee-fff"],
+      strategy: "round-robin",
+      maxRetries: 2,
+      validateKey: async (key) => {
+        // 可选：预验证 API 密钥
+        const response = await globalThis.fetch("/api/validate-key", {
+          headers: { "X-API-Key": key }
+        });
+        return response.ok;
+      },
+      isKeyInvalid: (error, response) => {
+        return (
+          response?.status === 401 ||
+          response?.status === 403 ||
+          error.message.includes("Invalid API key")
+        );
+      }
+    })
+  ]
+});
+
+// 插件会自动处理 API 密钥轮转
+const data = await fetch.get("/api/protected-resource");
+```
+
+### 11.9 流式响应处理
+
+处理大型文件下载和流式数据：
+
+```typescript
+import { createFetch } from "@okutils/fetch-core";
+import progressPlugin from "@okutils/fetch-plugin-progress";
+
+const fetch = createFetch({
+  plugins: [
+    progressPlugin({
+      onDownloadProgress: (progress) => {
+        updateProgressBar(progress.percentage || 0);
+      }
+    })
+  ]
+});
+
+/**
+ * 流式下载大文件
+ */
+async function downloadLargeFile(url: string, filename: string): Promise<void> {
+  try {
+    const response = await fetch.request(url, {
+      responseType: "stream" // 获取流式响应
+    });
+
+    if (!response.body) {
+      throw new Error("Response body is null");
+    }
+
+    // 在浏览器中处理流
+    if (typeof window !== "undefined") {
+      const reader = response.body.getReader();
+      const chunks: Uint8Array[] = [];
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+
+          if (done) break;
+
+          chunks.push(value);
+        }
+
+        // 合并所有块并创建下载链接
+        const blob = new Blob(chunks);
+        const downloadUrl = URL.createObjectURL(blob);
+
+        const link = document.createElement("a");
+        link.href = downloadUrl;
+        link.download = filename;
+        link.click();
+
+        // 清理资源
+        URL.revokeObjectURL(downloadUrl);
+      } finally {
+        reader.releaseLock();
+      }
+    }
+    // 在 Node.js 中处理流
+    else {
+      const fs = await import("fs");
+      const stream = require("stream");
+      const { promisify } = require("util");
+      const pipeline = promisify(stream.pipeline);
+
+      const writeStream = fs.createWriteStream(filename);
+
+      // 将响应流管道到文件写入流
+      await pipeline(response.body, writeStream);
+
+      console.log(`File downloaded successfully: ${filename}`);
+    }
+  } catch (error) {
+    console.error("Download failed:", error);
+    throw error;
+  }
+}
+
+/**
+ * 处理流式 JSON 数据
+ */
+async function processStreamingJson(url: string): Promise<void> {
+  const response = await fetch.request(url, {
+    responseType: "stream"
+  });
+
+  if (!response.body) {
+    throw new Error("Response body is null");
+  }
+
+  const reader = response.body
+    .pipeThrough(new TextDecoderStream()) // 转换为文本
+    .pipeThrough(createJsonLineParser()) // 解析 JSON 行
+    .getReader();
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+
+      if (done) break;
+
+      // 处理每个 JSON 对象
+      console.log("Received data:", value);
+      await processDataItem(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+}
+
+/**
+ * 创建 JSON 行解析器（处理 NDJSON 格式）
+ */
+function createJsonLineParser(): TransformStream<string, any> {
+  let buffer = "";
+
+  return new TransformStream({
+    transform(chunk, controller) {
+      buffer += chunk;
+      const lines = buffer.split("\n");
+
+      // 保留最后一行（可能不完整）
+      buffer = lines.pop() || "";
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (trimmed) {
+          try {
+            const parsed = JSON.parse(trimmed);
+            controller.enqueue(parsed);
+          } catch (error) {
+            console.warn("Failed to parse JSON line:", trimmed, error);
+          }
+        }
+      }
+    },
+
+    flush(controller) {
+      // 处理最后一行
+      if (buffer.trim()) {
+        try {
+          const parsed = JSON.parse(buffer.trim());
+          controller.enqueue(parsed);
+        } catch (error) {
+          console.warn("Failed to parse final JSON line:", buffer, error);
+        }
+      }
+    }
+  });
+}
+
+// 使用示例
+await downloadLargeFile("/api/files/large-dataset.zip", "dataset.zip");
+await processStreamingJson("/api/stream/events");
+```
+
+### 11.10 复杂认证流程
+
+实现 JWT 自动刷新和 OAuth 流程：
+
+```typescript
+import { createFetch } from "@okutils/fetch-core";
+
+/**
+ * JWT 自动刷新认证
+ */
+class JWTAuthManager {
+  private accessToken: string | null = null;
+  private refreshToken: string | null = null;
+  private refreshPromise: Promise<string> | null = null;
+
+  constructor(
+    private baseURL: string,
+    private onTokensUpdated?: (
+      accessToken: string,
+      refreshToken: string
+    ) => void
+  ) {}
+
+  setTokens(accessToken: string, refreshToken: string): void {
+    this.accessToken = accessToken;
+    this.refreshToken = refreshToken;
+    this.onTokensUpdated?.(accessToken, refreshToken);
+  }
+
+  private isTokenExpired(token: string): boolean {
+    try {
+      const payload = JSON.parse(atob(token.split(".")[1]));
+      const currentTime = Math.floor(Date.now() / 1000);
+      return payload.exp < currentTime;
+    } catch {
+      return true;
+    }
+  }
+
+  private async refreshAccessToken(): Promise<string> {
+    if (!this.refreshToken) {
+      throw new Error("No refresh token available");
+    }
+
+    // 如果已经有刷新请求在进行中，返回相同的 Promise
+    if (this.refreshPromise) {
+      return this.refreshPromise;
+    }
+
+    this.refreshPromise = (async (): Promise<string> => {
+      try {
+        const response = await globalThis.fetch(
+          `${this.baseURL}/auth/refresh`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${this.refreshToken}`
+            }
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error("Token refresh failed");
+        }
+
+        const data = await response.json();
+        this.setTokens(
+          data.accessToken,
+          data.refreshToken || this.refreshToken
+        );
+
+        return data.accessToken;
+      } finally {
+        this.refreshPromise = null;
+      }
+    })();
+
+    return this.refreshPromise;
+  }
+
+  async getValidToken(): Promise<string> {
+    if (!this.accessToken) {
+      throw new Error("No access token available");
+    }
+
+    if (this.isTokenExpired(this.accessToken)) {
+      return this.refreshAccessToken();
+    }
+
+    return this.accessToken;
+  }
+}
+
+// 创建带有 JWT 认证的 fetch 实例
+const createAuthenticatedFetch = (authManager: JWTAuthManager) => {
+  return createFetch({
+    hooks: {
+      beforeRequest: async (options) => {
+        try {
+          const token = await authManager.getValidToken();
+
+          const headers = new Headers(options.headers);
+          headers.set("Authorization", `Bearer ${token}`);
+
+          return {
+            ...options,
+            headers
+          };
+        } catch (error) {
+          console.error("Authentication failed:", error);
+          // 重定向到登录页面或抛出错误
+          window.location.href = "/login";
+          throw error;
+        }
+      },
+
+      onError: async (error) => {
+        if (error instanceof HTTPError && error.status === 401) {
+          // 令牌可能已失效，清除本地存储并重定向
+          localStorage.removeItem("accessToken");
+          localStorage.removeItem("refreshToken");
+          window.location.href = "/login";
+        }
+      }
+    }
+  });
+};
+
+// 使用示例
+const authManager = new JWTAuthManager(
+  "https://api.example.com",
+  (accessToken, refreshToken) => {
+    // 保存令牌到本地存储
+    localStorage.setItem("accessToken", accessToken);
+    localStorage.setItem("refreshToken", refreshToken);
+  }
+);
+
+// 从本地存储恢复令牌
+const savedAccessToken = localStorage.getItem("accessToken");
+const savedRefreshToken = localStorage.getItem("refreshToken");
+
+if (savedAccessToken && savedRefreshToken) {
+  authManager.setTokens(savedAccessToken, savedRefreshToken);
+}
+
+const authenticatedFetch = createAuthenticatedFetch(authManager);
+
+// 所有请求都会自动包含有效的认证令牌
+const userData = await authenticatedFetch.get("/api/user/profile");
+const posts = await authenticatedFetch.get("/api/user/posts");
+
+/**
+ * OAuth 2.0 流程示例
+ */
+class OAuthManager {
+  constructor(
+    private clientId: string,
+    private redirectUri: string,
+    private authServerUrl: string
+  ) {}
+
+  // 第一步：重定向到授权服务器
+  initiateAuthFlow(scopes: string[] = []): void {
+    const params = new URLSearchParams({
+      response_type: "code",
+      client_id: this.clientId,
+      redirect_uri: this.redirectUri,
+      scope: scopes.join(" "),
+      state: this.generateState() // CSRF 保护
+    });
+
+    const authUrl = `${this.authServerUrl}/auth?${params.toString()}`;
+    window.location.href = authUrl;
+  }
+
+  // 第二步：处理授权回调
+  async handleAuthCallback(): Promise<{
+    accessToken: string;
+    refreshToken: string;
+  }> {
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get("code");
+    const state = urlParams.get("state");
+
+    if (!code) {
+      throw new Error("Authorization code not found");
+    }
+
+    // 验证 state 参数
+    if (!this.validateState(state)) {
+      throw new Error("Invalid state parameter");
+    }
+
+    // 交换授权码获取访问令牌
+    const tokenResponse = await globalThis.fetch(
+      `${this.authServerUrl}/token`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded"
+        },
+        body: new URLSearchParams({
+          grant_type: "authorization_code",
+          code,
+          redirect_uri: this.redirectUri,
+          client_id: this.clientId
+        })
+      }
+    );
+
+    if (!tokenResponse.ok) {
+      throw new Error("Token exchange failed");
+    }
+
+    const tokens = await tokenResponse.json();
+    return {
+      accessToken: tokens.access_token,
+      refreshToken: tokens.refresh_token
+    };
+  }
+
+  private generateState(): string {
+    const state = Math.random().toString(36).substring(2, 15);
+    sessionStorage.setItem("oauth_state", state);
+    return state;
+  }
+
+  private validateState(state: string | null): boolean {
+    const expectedState = sessionStorage.getItem("oauth_state");
+    sessionStorage.removeItem("oauth_state");
+    return state === expectedState;
+  }
+}
+
+// OAuth 使用示例
+const oauthManager = new OAuthManager(
+  "your-client-id",
+  "http://localhost:3000/auth/callback",
+  "https://auth.example.com"
+);
+
+// 在登录页面
+document.getElementById("loginButton")?.addEventListener("click", () => {
+  oauthManager.initiateAuthFlow(["read", "write"]);
+});
+
+// 在回调页面
+if (window.location.pathname === "/auth/callback") {
+  try {
+    const { accessToken, refreshToken } =
+      await oauthManager.handleAuthCallback();
+    authManager.setTokens(accessToken, refreshToken);
+
+    // 重定向到应用主页
+    window.location.href = "/dashboard";
+  } catch (error) {
+    console.error("OAuth callback error:", error);
+    window.location.href = "/login?error=auth_failed";
+  }
+}
+```
+
+## 13. 测试策略
+
+### 13.1 测试架构设计
+
+采用分层测试策略，确保库的可靠性和稳定性：
+
+```typescript
+/**
+ * 测试类型分层
+ */
+interface ITestStrategy {
+  /** 单元测试：测试单个函数/类/模块 */
+  unit: {
+    coverage: number; // 目标覆盖率 >= 95%
+    frameworks: ["vitest", "jest"];
+    focus: ["核心功能", "工具函数", "类型验证", "错误处理"];
+  };
+
+  /** 集成测试：测试组件间交互 */
+  integration: {
+    coverage: number; // 目标覆盖率 >= 90%
+    focus: ["插件系统", "生命周期钩子", "配置合并", "环境适配"];
+  };
+
+  /** 端到端测试：测试完整用户场景 */
+  e2e: {
+    focus: ["实际 HTTP 请求", "错误场景", "性能测试", "浏览器兼容性"];
+  };
+
+  /** 类型测试：验证 TypeScript 类型正确性 */
+  types: {
+    framework: "tsd" | "typescript";
+    focus: ["类型推导", "泛型约束", "错误类型", "插件类型"];
+  };
+}
+```
+
+### 13.2 测试工具配置
+
+#### 13.2.1 Vitest 配置 (vitest.config.ts)
+
+```typescript
+import { defineConfig } from "vitest/config";
+import { resolve } from "path";
+
+export default defineConfig({
+  test: {
+    // 测试环境配置
+    environment: "jsdom", // 模拟浏览器环境
+    globals: true,
+    setupFiles: ["./tests/setup.ts"],
+
+    // 覆盖率配置
+    coverage: {
+      provider: "v8",
+      reporter: ["text", "json", "html"],
+      thresholds: {
+        global: {
+          branches: 90,
+          functions: 95,
+          lines: 95,
+          statements: 95
+        }
+      },
+      exclude: ["dist/**", "tests/**", "**/*.config.*", "**/*.d.ts"]
+    },
+
+    // 并发测试
+    pool: "threads",
+    poolOptions: {
+      threads: {
+        singleThread: false
+      }
+    }
+  },
+
+  resolve: {
+    alias: {
+      "@": resolve(__dirname, "./src"),
+      "@tests": resolve(__dirname, "./tests")
+    }
+  }
+});
+```
+
+#### 13.2.2 测试环境设置 (tests/setup.ts)
+
+```typescript
+import { vi } from "vitest";
+import { fetch, Headers, Request, Response, AbortController } from "node-fetch";
+
+// Mock 全局 fetch API for Node.js 测试环境
+Object.assign(globalThis, {
+  fetch,
+  Headers,
+  Request,
+  Response,
+  AbortController,
+  ReadableStream: global.ReadableStream || class MockReadableStream {},
+  TransformStream: global.TransformStream || class MockTransformStream {}
+});
+
+// Mock 浏览器特定的 API
+Object.assign(globalThis, {
+  window: globalThis,
+  document: {},
+  navigator: {
+    userAgent: "test-environment"
+  }
+});
+
+// 设置测试超时
+vi.setConfig({
+  testTimeout: 10000
+});
+
+// 全局错误处理
+process.on("unhandledRejection", (error) => {
+  console.error("Unhandled Promise Rejection:", error);
+});
+```
+
+### 13.3 核心功能测试
+
+#### 13.3.1 基础请求测试
+
+```typescript
+// tests/core/request.test.ts
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { createFetch } from "@/index";
+import { HTTPError, TimeoutError, AbortError } from "@/core/error";
+
+describe("Core Request Functionality", () => {
+  let mockFetch: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    mockFetch = vi.fn();
+    globalThis.fetch = mockFetch;
+  });
+
+  afterEach(() => {
+    vi.resetAllMocks();
+  });
+
+  describe("Basic HTTP Methods", () => {
+    it("should perform GET request correctly", async () => {
+      const mockResponse = new Response(JSON.stringify({ id: 1 }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      });
+      mockFetch.mockResolvedValue(mockResponse);
+
+      const fetch = createFetch();
+      const result = await fetch.get("/api/users/1");
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.objectContaining({
+          url: "/api/users/1",
+          method: "GET"
+        })
+      );
+      expect(result).toEqual({ id: 1 });
+    });
+
+    it("should perform POST request with body", async () => {
+      const mockResponse = new Response(JSON.stringify({ success: true }), {
+        status: 201
+      });
+      mockFetch.mockResolvedValue(mockResponse);
+
+      const fetch = createFetch();
+      const data = { name: "Test User" };
+      const result = await fetch.post("/api/users", data);
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify(data)
+        })
+      );
+      expect(result).toEqual({ success: true });
+    });
+  });
+
+  describe("Error Handling", () => {
+    it("should throw HTTPError for 4xx status", async () => {
+      const mockResponse = new Response("Not Found", { status: 404 });
+      mockFetch.mockResolvedValue(mockResponse);
+
+      const fetch = createFetch();
+
+      await expect(fetch.get("/api/nonexistent")).rejects.toThrow(HTTPError);
+    });
+
+    it("should handle timeout correctly", async () => {
+      mockFetch.mockImplementation(
+        () => new Promise((resolve) => setTimeout(resolve, 2000))
+      );
+
+      const fetch = createFetch();
+
+      await expect(fetch.get("/api/slow", { timeout: 1000 })).rejects.toThrow(
+        TimeoutError
+      );
+    });
+
+    it("should handle request cancellation", async () => {
+      const controller = new AbortController();
+      mockFetch.mockImplementation(() =>
+        Promise.reject(new DOMException("Request aborted", "AbortError"))
+      );
+
+      const fetch = createFetch();
+
+      setTimeout(() => controller.abort(), 100);
+
+      await expect(
+        fetch.get("/api/data", { signal: controller.signal })
+      ).rejects.toThrow(AbortError);
+    });
+  });
+});
+```
+
+#### 13.3.2 插件系统测试
+
+```typescript
+// tests/plugins/plugin-system.test.ts
+import { describe, it, expect, vi } from "vitest";
+import { createFetch } from "@/index";
+import type { IPluginInstance, TMiddleware } from "@/types";
+
+describe("Plugin System", () => {
+  const createMockPlugin = (
+    name: string,
+    middleware?: TMiddleware,
+    dependencies?: string[]
+  ): IPluginInstance => ({
+    name,
+    version: "1.0.0",
+    middleware: middleware || (async (context, next) => next()),
+    dependencies: dependencies?.map((dep) => ({ name: dep }))
+  });
+
+  it("should register and execute plugins in correct order", async () => {
+    const executionOrder: string[] = [];
+
+    const plugin1 = createMockPlugin("plugin1", async (context, next) => {
+      executionOrder.push("plugin1-start");
+      const response = await next();
+      executionOrder.push("plugin1-end");
+      return response;
+    });
+
+    const plugin2 = createMockPlugin("plugin2", async (context, next) => {
+      executionOrder.push("plugin2-start");
+      const response = await next();
+      executionOrder.push("plugin2-end");
+      return response;
+    });
+
+    const mockResponse = new Response("{}", { status: 200 });
+    globalThis.fetch = vi.fn().mockResolvedValue(mockResponse);
+
+    const fetch = createFetch({
+      plugins: [plugin1, plugin2]
+    });
+
+    await fetch.get("/test");
+
+    expect(executionOrder).toEqual([
+      "plugin1-start",
+      "plugin2-start",
+      "plugin2-end",
+      "plugin1-end"
+    ]);
+  });
+
+  it("should handle plugin dependencies correctly", async () => {
+    const plugin1 = createMockPlugin("dependency-plugin");
+    const plugin2 = createMockPlugin("main-plugin", undefined, [
+      "dependency-plugin"
+    ]);
+
+    const fetch = createFetch({
+      plugins: [plugin2, plugin1] // 注意：顺序故意颠倒
+    });
+
+    // 应该根据依赖关系自动排序
+    const plugins = fetch.getRegisteredPlugins();
+    const pluginNames = plugins.map((p) => p.name);
+
+    expect(pluginNames.indexOf("dependency-plugin")).toBeLessThan(
+      pluginNames.indexOf("main-plugin")
+    );
+  });
+
+  it("should detect and prevent circular dependencies", () => {
+    const plugin1 = createMockPlugin("plugin1", undefined, ["plugin2"]);
+    const plugin2 = createMockPlugin("plugin2", undefined, ["plugin1"]);
+
+    expect(() => {
+      createFetch({
+        plugins: [plugin1, plugin2]
+      });
+    }).toThrow("Circular dependency detected");
+  });
+
+  it("should handle plugin conflicts", () => {
+    const plugin1: IPluginInstance = {
+      ...createMockPlugin("plugin1"),
+      conflicts: ["plugin2"]
+    };
+    const plugin2 = createMockPlugin("plugin2");
+
+    expect(() => {
+      createFetch({
+        plugins: [plugin1, plugin2]
+      });
+    }).toThrow("conflicts with");
+  });
+});
+```
+
+### 13.4 类型测试
+
+#### 13.4.1 TypeScript 类型测试
+
+```typescript
+// tests/types/fetch.test-d.ts
+import { expectType, expectError } from "tsd";
+import { createFetch } from "@/index";
+import type { IUser, ICreateUserDto } from "./fixtures";
+
+const fetch = createFetch();
+
+// 基础类型推导测试
+expectType<Promise<any>>(fetch.get("/api/data"));
+expectType<Promise<IUser>>(fetch.get<IUser>("/api/user"));
+
+// 泛型约束测试
+expectType<Promise<IUser>>(
+  fetch.post<IUser, ICreateUserDto>("/api/users", {
+    name: "Test",
+    email: "test@example.com"
+  })
+);
+
+// 配置类型测试
+expectType<Promise<any>>(
+  fetch.get("/api/data", {
+    timeout: 5000,
+    headers: { Authorization: "Bearer token" }
+  })
+);
+
+// 错误情况测试
+expectError(
+  fetch.get("/api/data", {
+    timeout: "invalid" // 应该是 number
+  })
+);
+
+// exactOptionalPropertyTypes 测试
+interface IStrictConfig {
+  timeout?: number; // 注意：不包含 undefined
+}
+
+const config: IStrictConfig = {};
+expectError(
+  Object.assign(config, { timeout: undefined }) // 应该报错
+);
+```
+
+### 13.5 集成测试
+
+#### 13.5.1 真实 HTTP 测试
+
+```typescript
+// tests/integration/http.test.ts
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { createServer } from "http";
+import { createFetch } from "@/index";
+
+describe("Real HTTP Integration Tests", () => {
+  let server: any;
+  let baseURL: string;
+
+  beforeAll(async () => {
+    // 启动测试服务器
+    server = createServer((req, res) => {
+      // 简单的测试路由
+      if (req.url === "/api/test") {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ message: "Hello World" }));
+      } else if (req.url === "/api/error") {
+        res.writeHead(500, { "Content-Type": "text/plain" });
+        res.end("Internal Server Error");
+      } else {
+        res.writeHead(404);
+        res.end();
+      }
+    });
+
+    await new Promise<void>((resolve) => {
+      server.listen(0, () => {
+        const port = server.address().port;
+        baseURL = `http://localhost:${port}`;
+        resolve();
+      });
+    });
+  });
+
+  afterAll(() => {
+    server?.close();
+  });
+
+  it("should handle real HTTP requests", async () => {
+    const fetch = createFetch({ baseURL });
+    const result = await fetch.get("/api/test");
+
+    expect(result).toEqual({ message: "Hello World" });
+  });
+
+  it("should handle real HTTP errors", async () => {
+    const fetch = createFetch({ baseURL });
+
+    await expect(fetch.get("/api/error")).rejects.toThrow("500");
+  });
+});
+```
+
+### 13.6 性能测试
+
+```typescript
+// tests/performance/benchmark.test.ts
+import { describe, it, expect } from "vitest";
+import { createFetch } from "@/index";
+
+describe("Performance Benchmarks", () => {
+  it("should handle concurrent requests efficiently", async () => {
+    const fetch = createFetch();
+    const mockResponse = new Response("{}", { status: 200 });
+    globalThis.fetch = vi.fn().mockResolvedValue(mockResponse);
+
+    const startTime = Date.now();
+    const promises = Array.from({ length: 100 }, () => fetch.get("/api/test"));
+
+    await Promise.all(promises);
+    const duration = Date.now() - startTime;
+
+    // 100 个并发请求应该在合理时间内完成
+    expect(duration).toBeLessThan(1000); // 1 秒
+  });
+
+  it("should have minimal memory footprint", async () => {
+    const fetch = createFetch();
+    const initialMemory = process.memoryUsage().heapUsed;
+
+    // 执行大量请求
+    for (let i = 0; i < 1000; i++) {
+      const mockResponse = new Response("{}", { status: 200 });
+      globalThis.fetch = vi.fn().mockResolvedValue(mockResponse);
+      await fetch.get("/api/test");
+    }
+
+    // 强制垃圾回收
+    if (global.gc) global.gc();
+
+    const finalMemory = process.memoryUsage().heapUsed;
+    const memoryIncrease = finalMemory - initialMemory;
+
+    // 内存增长应该在合理范围内（10MB）
+    expect(memoryIncrease).toBeLessThan(10 * 1024 * 1024);
+  });
+});
+```
+
+### 13.7 CI/CD 测试配置
+
+#### 13.7.1 GitHub Actions 配置
+
+```yaml
+# .github/workflows/test.yml
+name: Test Suite
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [18, 20, 22]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Type check
+        run: pnpm type-check
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Unit tests
+        run: pnpm test:unit --coverage
+
+      - name: Integration tests
+        run: pnpm test:integration
+
+      - name: Type tests
+        run: pnpm test:types
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage/coverage-final.json
+
+  browser-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v2
+      - name: Browser compatibility tests
+        run: pnpm test:browser
+```
+
+### 13.8 测试覆盖率要求
+
+- **单元测试覆盖率**：≥ 95%
+- **集成测试覆盖率**：≥ 90%
+- **类型测试**：覆盖所有公共 API
+- **浏览器兼容性测试**：支持现代浏览器
+- **Node.js 兼容性测试**：支持 Node.js 20+
+
+通过这套完整的测试策略，确保 `@okutils/fetch` 库的可靠性、性能和类型安全性。
+
+## 14. 附录
 
 ### 12.1 兼容性说明
 
