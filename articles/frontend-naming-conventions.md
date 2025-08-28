@@ -15,7 +15,7 @@
 9. 变量、类型、组件、方法不得用汉语拼音特别是拼音缩写。
 10. 换行符为 `LF`，Git 也要如此设置。
 11. 谨慎使用 `any` 类型，必须使用时应添加注释说明原因。这符合 ESLint `@typescript-eslint/no-explicit-any` 和 `@typescript-eslint/no-unsafe-assignment` 规则。
-12. ESLint 配置文件必须为 flatConfig 格式，必须添加 `prettier`、`import-x` 和 `tsdoc` 插件。推荐使用下面的基本配置示例：
+12. ESLint 配置文件必须为 flatConfig 格式，必须添加 `prettier`、`import-x` 和 `tsdoc` 插件。推荐使用下面的基本配置示例（需要配合现代化的TypeScript配置使用）：
 
 ```typescript
 import js from "@eslint/js";
@@ -39,7 +39,7 @@ export default tseslint.config(
   {
     files: ["src/**/*.{js,mjs,cjs,ts,mts,cts}"],
     languageOptions: {
-      ecmaVersion: 2023,
+      ecmaVersion: 2022, // 与 tsconfig target: "ES2022" 保持一致
       globals: { ...globals.browser, ...globals.node },
       parser: tseslint.parser,
       parserOptions: {
@@ -112,7 +112,7 @@ export default tseslint.config(
 
 13. 原则上不得使用已经停止维护或长期没有更新的库（如果一个活跃开发的第三方库依赖某个已经停止维护的库，则视情况而定）。
 14. 原则上应使用 `es-toolkit` `radash` 等工具库代替 `lodash` 作为 `JS` 工具库。但如果开发的项目需要运行在旧的操作系统或旧的 `Node.js` 环境中，则不适用此规定。
-15. 语法规范为 `ES2023+`，但如果开发的项目需要运行在旧的操作系统或旧的 `Node.js` 环境中，则不适用此规定。
+15. 语法规范为 `ES2022+`，采用现代化的TypeScript配置，包括严格类型检查、ES模块优先、现代构建工具兼容等设计原则。但如果开发的项目需要运行在旧的操作系统或旧的 `Node.js` 环境中，则不适用此规定。
 
 一个基本的 Prettier 配置如下：
 
@@ -129,6 +129,176 @@ export default tseslint.config(
 
 16. 不得使用 `@ts-ignore`，必须要使用时（比如说测试用例代码里面要测试错误情况）应该添加说明。
 17. 明确以使用箭头函数为优先，除非确实有使用 `function` 关键字定义函数的必要。
+
+## TypeScript 配置规范
+
+### 现代化配置原则
+
+本规范推荐采用严格且现代化的 TypeScript 配置，以确保代码质量、类型安全和构建工具兼容性。以下是核心设计原则：
+
+#### 1. 现代化目标和模块系统
+
+- **编译目标**：使用 `"target": "ES2022"`，支持 top-level await、class fields 等现代特性
+- **模块系统**：采用 `"module": "ESNext"` 配合 `"moduleResolution": "bundler"`，专为现代构建工具优化
+- **模块检测**：使用 `"moduleDetection": "auto"`，智能处理 ESM/CommonJS 混合环境
+
+#### 2. 严格类型检查（强制启用）
+
+以下配置项在所有项目中都应该启用，以确保最高的类型安全：
+
+```json
+{
+  "compilerOptions": {
+    "strict": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitOverride": true,
+    "noUncheckedIndexedAccess": true,
+    "useUnknownInCatchVariables": true
+  }
+}
+```
+
+**配置说明**：
+
+- `exactOptionalPropertyTypes`: 精确区分 `undefined` 和未定义属性，提供更严格的类型检查
+- `noUncheckedIndexedAccess`: 为索引签名访问添加 `undefined` 检查，防止运行时错误
+- `useUnknownInCatchVariables`: catch 块使用 `unknown` 类型，遵循现代错误处理最佳实践
+- `noImplicitOverride`: 要求显式使用 `override` 关键字，避免意外覆盖
+
+#### 3. 模块互操作和兼容性
+
+```json
+{
+  "compilerOptions": {
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "forceConsistentCasingInFileNames": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true
+  }
+}
+```
+
+**配置说明**：
+
+- `isolatedModules`: 确保每个文件可独立编译，提高构建工具兼容性
+- `verbatimModuleSyntax`: 确保 import/export 语法的严格性，避免模块系统混淆
+- `esModuleInterop`: 改善 ES 模块和 CommonJS 模块间的互操作性
+
+#### 4. 开发体验优化
+
+```json
+{
+  "compilerOptions": {
+    "noErrorTruncation": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "resolvePackageJsonExports": true,
+    "resolvePackageJsonImports": true
+  }
+}
+```
+
+**配置说明**：
+
+- `noErrorTruncation`: 显示完整的类型错误信息，便于调试和问题定位
+- `resolvePackageJsonExports/Imports`: 支持现代包管理器和构建工具的标准
+
+#### 5. 构建优化配置
+
+```json
+{
+  "compilerOptions": {
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "importHelpers": true,
+    "removeComments": true,
+    "downlevelIteration": true
+  }
+}
+```
+
+#### 6. Monorepo 项目配置（按需启用）
+
+对于 Monorepo 项目，以下配置需要根据项目结构决定是否启用：
+
+```json
+{
+  "compilerOptions": {
+    "composite": true
+  }
+}
+```
+
+**使用场景**：
+
+- **启用情况**：多包项目，需要跨包类型检查和增量编译时启用
+- **不启用情况**：单体项目或不需要项目引用功能的简单项目
+- **根目录配置**：Monorepo 根目录应使用项目引用而非直接编译：
+
+```json
+{
+  "files": [],
+  "references": [{ "path": "./packages/core" }, { "path": "./packages/utils" }]
+}
+```
+
+### 推荐配置模板
+
+#### 单体项目 tsconfig.json
+
+```json
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable", "ES2022.Intl"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "moduleDetection": "auto",
+
+    "strict": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitOverride": true,
+    "noUncheckedIndexedAccess": true,
+    "useUnknownInCatchVariables": true,
+
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "forceConsistentCasingInFileNames": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "outDir": "./dist",
+    "baseUrl": "./",
+
+    "resolveJsonModule": true,
+    "resolvePackageJsonExports": true,
+    "resolvePackageJsonImports": true,
+    "skipLibCheck": true,
+    "noErrorTruncation": true,
+    "types": ["node"]
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}
+```
+
+#### Monorepo 基础配置 (shared/tsconfig.base.json)
+
+在 Monorepo 项目中，上述配置应作为基础配置，并添加 `"composite": true`。各子包通过 `extends` 继承基础配置。
 
 ## TypeScript 类型命名
 
@@ -239,7 +409,7 @@ export { default as CommonInput } from "./common-input.vue";
 export * from "./types";
 ```
 
-6. 对于采用 Vite、Webpack、Next.js 构建的项目，必须设置路径前缀 `@`：
+6. 对于采用 Vite、Webpack、Next.js 构建的项目，必须设置路径前缀 `@`，并确保与推荐的TypeScript配置兼容：
    `vite.config.ts`：
 
 ```typescript
@@ -255,13 +425,16 @@ export default defineConfig({
 });
 ```
 
-`tsconfig.app.json`：
+`tsconfig.app.json`（继承基础配置）：
 
 ```json
 {
-  "baseUrl": ".",
-  "paths": {
-    "@/*": ["./src/*"]
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"]
+    }
   }
 }
 ```
@@ -389,14 +562,14 @@ const props = withDefaults(defineProps<IDialogProps>(), {
 ## 工具库开发规范
 
 1. 函数应该是纯函数，尽量避免副作用。
-2. 提供完整的 TypeScript 类型定义。
+2. 提供完整的 TypeScript 类型定义，遵循严格的类型检查配置。
 3. 函数命名应该清晰表达其功能。
 4. 提供详细的 TSDoc 文档。
 5. 支持树摇（tree-shaking），每个函数独立导出。
-6. 错误处理应该一致且可预测。
+6. 错误处理应该一致且可预测，遵循 `useUnknownInCatchVariables` 原则。
 7. 支持链式调用（如果适用）。
 8. 避免依赖过多的第三方库。
-9. 原则上可以只提供 ESM 格式，除非有需求必须要兼容 CommonJS 和 UMD。
+9. 原则上可以只提供 ESM 格式，除非有需求必须要兼容 CommonJS 和 UMD。配置应启用 `isolatedModules` 和 `verbatimModuleSyntax` 确保模块兼容性。
 
 ## 微信小程序项目规范
 
@@ -414,7 +587,7 @@ const props = withDefaults(defineProps<IDialogProps>(), {
 
 ### NestJS 项目规范
 
-1. 必须使用 TypeScript。
+1. 必须使用 TypeScript，采用严格的类型检查配置，包括 `exactOptionalPropertyTypes`、`noUncheckedIndexedAccess` 等现代化选项。
 2. 以 `前端便利性` 为导向设计接口，减少前端调用次数，提升用户体验。接口应尽可能返回丰富且关联的数据。
 3. 尽量使用 `@nestjs/common` 中的 `HttpException` 抛出异常。
 4. 增加新的路由的时候，应该配置好 `Swagger`，比如：
@@ -461,7 +634,7 @@ const props = withDefaults(defineProps<IDialogProps>(), {
 
 ### Fastify 项目规范
 
-1. 必须使用 TypeScript。
+1. 必须使用 TypeScript，配置应包含严格的类型检查和现代化的编译选项。
 2. 使用 Fastify 的插件系统组织代码。
 3. 路由定义使用 TypeScript 接口确保类型安全：
 

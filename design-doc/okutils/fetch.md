@@ -42,7 +42,7 @@
 ### 1.3 设计理念
 
 - **现代化优先**：充分利用现代 JavaScript/TypeScript 特性，不为过时的环境做妥协
-- **类型安全**：提供完整的 TypeScript 类型定义，实现编译时类型检查
+- **类型安全优先**：启用最严格的 TypeScript 配置，包括 `exactOptionalPropertyTypes`，确保编译时发现潜在问题
 - **插件化架构**：核心功能精简，通过插件扩展功能
 - **同构设计**：支持浏览器和 Node.js 环境，为未来的 SSR 支持做准备
 - **开发者友好**：直观的 API 设计，详细的错误信息，完善的文档
@@ -53,7 +53,7 @@
 - 基于原生 Fetch API，本项目只官方支持在原生支持 Fetch API （新的浏览器和 Node.js 18+），用户可以自己通过 polyfill 的方式在浏览器中添加 fetch 甚至对这个库已经 hack，以支持旧环境，但是因此出现的 bug 不在官方的修复范畴。
 - 完整的生命周期钩子系统
 - 灵活的插件机制
-- 严格的 TypeScript 类型支持
+- **严格的 TypeScript 类型安全**：启用 `exactOptionalPropertyTypes` 等严格配置，提供编译时类型保障
 - 自动的请求/响应转换
 - 统一的错误处理
 - 支持请求取消和超时控制
@@ -97,10 +97,10 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "type-check": "tsc --noEmit",
+    "type-check": "pnpm -r type-check",
     "changeset": "changeset",
     "version": "changeset version",
-    "release": "pnpm build && changeset publish"
+    "release": "pnpm build && pnpm type-check && changeset publish"
   },
   "keywords": [
     "fetch",
@@ -665,52 +665,246 @@ export default tseslint.config(
 
 ```json
 {
+  "$schema": "https://json.schemastore.org/tsconfig",
   "compilerOptions": {
-    // File Layout
-    "baseUrl": "./",
-    "outDir": "./dist",
+    // ===========================================
+    // 语言和环境配置 (Language and Environment)
+    // ===========================================
 
-    // Environment Settings
+    /**
+     * ECMAScript 目标版本
+     * ES2022 提供了更好的现代 JavaScript 特性支持，包括 top-level await
+     * 适合 Node.js 18+ 和现代浏览器环境
+     */
+    "target": "ES2022",
+
+    /**
+     * 包含的类型库
+     * ES2022: 现代 JavaScript 运行时特性
+     * DOM: 浏览器环境 API （用于同构支持）
+     * DOM.Iterable: DOM 集合的迭代器支持
+     * ES2022.Intl: 国际化 API
+     */
+    "lib": ["ES2022", "DOM", "DOM.Iterable", "ES2022.Intl"],
+
+    /**
+     * 模块检测策略
+     * auto: 自动检测模块类型，支持 ESM/CommonJS 混合环境
+     */
+    "moduleDetection": "auto",
+
+    // ===========================================
+    // 模块系统配置 (Modules)
+    // ===========================================
+
+    /**
+     * 模块系统类型
+     * ESNext: 使用最新的 ES 模块语法，适合现代构建工具
+     */
     "module": "ESNext",
-    "target": "ESNext",
-    "esModuleInterop": true,
-    "moduleResolution": "node",
 
-    // For Node.js and Browser support
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    /**
+     * 模块解析策略
+     * bundler: 专为打包工具设计，支持 package.json exports/imports
+     * 提供更好的 Rollup/Vite 兼容性
+     */
+    "moduleResolution": "bundler",
+
+    /**
+     * 基础 URL，用于非相对模块名称解析
+     */
+    "baseUrl": "./",
+
+    /**
+     * 解析 JSON 模块
+     * 允许导入 .json 文件并获得类型推断
+     */
+    "resolveJsonModule": true,
+
+    /**
+     * 支持 package.json exports 字段
+     * 现代包管理器和构建工具的标准
+     */
+    "resolvePackageJsonExports": true,
+
+    /**
+     * 支持 package.json imports 字段
+     * 用于包内部模块解析
+     */
+    "resolvePackageJsonImports": true,
+
+    /**
+     * 允许从没有默认导出的模块中导入默认值
+     * 提高与 CommonJS 模块的互操作性
+     */
+    "allowSyntheticDefaultImports": true,
+
+    /**
+     * Node.js 类型定义
+     * 提供 Node.js 内置模块的类型支持
+     */
     "types": ["node"],
 
-    // Output Options
-    "sourceMap": true,
+    // ===========================================
+    // 输出配置 (Emit)
+    // ===========================================
+
+    /**
+     * 输出目录
+     */
+    "outDir": "./dist",
+
+    /**
+     * 生成声明文件 (.d.ts)
+     * 为库的使用者提供类型信息
+     */
     "declaration": true,
+
+    /**
+     * 生成声明文件的 source map
+     * 改善类型错误的调试体验
+     */
     "declarationMap": true,
 
-    // Strict Checks
+    /**
+     * 生成源码映射文件
+     * 用于调试时映射到原始 TypeScript 源码
+     */
+    "sourceMap": true,
+
+    /**
+     * 移除注释
+     * 减小输出文件体积，生产环境推荐
+     */
+    "removeComments": true,
+
+    /**
+     * 导入辅助函数
+     * 从 tslib 导入辅助函数而不是内联，减小输出体积
+     */
+    "importHelpers": true,
+
+    /**
+     * 下级迭代
+     * 为旧版本 JavaScript 提供更准确的迭代器支持
+     */
+    "downlevelIteration": true,
+
+    // ===========================================
+    // 互操作约束 (Interop Constraints)
+    // ===========================================
+
+    /**
+     * ES 模块互操作
+     * 改善 ES 模块和 CommonJS 模块之间的互操作性
+     * 推荐用于现代项目
+     */
+    "esModuleInterop": true,
+
+    /**
+     * 强制文件名大小写一致性
+     * 避免不同操作系统间的文件系统差异问题
+     */
+    "forceConsistentCasingInFileNames": true,
+
+    /**
+     * 隔离模块
+     * 确保每个文件可以独立编译，提高构建工具兼容性
+     */
+    "isolatedModules": true,
+
+    /**
+     * 逐字模块语法
+     * 确保导入/导出语法的一致性，避免模块系统混淆
+     */
+    "verbatimModuleSyntax": true,
+
+    // ===========================================
+    // 类型检查配置 (Type Checking)
+    // ===========================================
+
+    /**
+     * 启用所有严格类型检查选项
+     * 包括 noImplicitAny、strictNullChecks 等
+     */
     "strict": true,
-    "noImplicitAny": true,
-    "strictNullChecks": true,
-    "strictFunctionTypes": true,
+
+    /**
+     * 精确的可选属性类型
+     * 区分 undefined 和未定义的属性，提供更准确的类型检查
+     */
+    "exactOptionalPropertyTypes": true,
+
+    /**
+     * 检查函数中的所有代码路径是否都有返回值
+     */
     "noImplicitReturns": true,
+
+    /**
+     * 检查 switch 语句中是否有 fallthrough 情况
+     */
+    "noFallthroughCasesInSwitch": true,
+
+    /**
+     * 检查未使用的局部变量
+     * 帮助发现代码中的潜在问题
+     */
     "noUnusedLocals": true,
+
+    /**
+     * 检查未使用的参数
+     * 提高代码质量
+     */
     "noUnusedParameters": true,
 
-    // Advanced Options
+    /**
+     * 要求 override 关键字
+     * 明确标识覆盖的类成员，避免意外覆盖
+     */
+    "noImplicitOverride": true,
+
+    /**
+     * 检查未经检查的索引访问
+     * 为索引签名访问添加 undefined 检查，提高类型安全性
+     */
+    "noUncheckedIndexedAccess": true,
+
+    /**
+     * 在 catch 子句中使用 unknown 类型
+     * 现代错误处理的最佳实践
+     */
+    "useUnknownInCatchVariables": true,
+
+    // ===========================================
+    // 项目配置 (Projects)
+    // ===========================================
+
+    /**
+     * 复合项目
+     * 启用项目引用功能
+     */
+    "composite": true,
+
+    // ===========================================
+    // 完整性检查 (Completeness)
+    // ===========================================
+
+    /**
+     * 跳过库文件的类型检查
+     * 提高编译性能，推荐用于生产环境
+     */
     "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true,
-    "allowSyntheticDefaultImports": true
-  },
-  "include": ["packages/*/src/**/*", "packages/*/types/**/*"],
-  "exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.spec.ts"],
-  "references": [
-    { "path": "./packages/shared" },
-    { "path": "./packages/core" },
-    { "path": "./packages/plugins/cache" },
-    { "path": "./packages/plugins/retry" },
-    { "path": "./packages/plugins/dedup" },
-    { "path": "./packages/plugins/progress" },
-    { "path": "./packages/plugins/concurrent" }
-  ]
+
+    // ===========================================
+    // 编译器诊断 (Compiler Diagnostics)
+    // ===========================================
+
+    /**
+     * 不截断错误信息
+     * 显示完整的类型错误信息，便于调试
+     */
+    "noErrorTruncation": true
+  }
 }
 ```
 
@@ -731,44 +925,251 @@ export default tseslint.config(
 
 ```json
 {
+  "$schema": "https://json.schemastore.org/tsconfig",
   "compilerOptions": {
-    // File Layout
-    "baseUrl": "./",
-    "outDir": "./dist",
+    // ===========================================
+    // 语言和环境配置 (Language and Environment)
+    // ===========================================
 
-    // Environment Settings
+    /**
+     * ECMAScript 目标版本
+     * ES2022 提供了更好的现代 JavaScript 特性支持，包括 top-level await
+     * 适合 Node.js 18+ 和现代浏览器环境
+     */
+    "target": "ES2022",
+
+    /**
+     * 包含的类型库
+     * ES2022: 现代 JavaScript 运行时特性
+     * DOM: 浏览器环境 API （用于同构支持）
+     * DOM.Iterable: DOM 集合的迭代器支持
+     * ES2022.Intl: 国际化 API
+     */
+    "lib": ["ES2022", "DOM", "DOM.Iterable", "ES2022.Intl"],
+
+    /**
+     * 模块检测策略
+     * auto: 自动检测模块类型，支持 ESM/CommonJS 混合环境
+     */
+    "moduleDetection": "auto",
+
+    // ===========================================
+    // 模块系统配置 (Modules)
+    // ===========================================
+
+    /**
+     * 模块系统类型
+     * ESNext: 使用最新的 ES 模块语法，适合现代构建工具
+     */
     "module": "ESNext",
-    "target": "ES2020",
-    "esModuleInterop": true,
-    "moduleResolution": "node",
-    "downlevelIteration": true,
 
-    // For Node.js and Browser support
-    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    /**
+     * 模块解析策略
+     * bundler: 专为打包工具设计，支持 package.json exports/imports
+     * 提供更好的 Rollup/Vite 兼容性
+     */
+    "moduleResolution": "bundler",
+
+    /**
+     * 基础 URL，用于非相对模块名称解析
+     */
+    "baseUrl": "./",
+
+    /**
+     * 解析 JSON 模块
+     * 允许导入 .json 文件并获得类型推断
+     */
+    "resolveJsonModule": true,
+
+    /**
+     * 支持 package.json exports 字段
+     * 现代包管理器和构建工具的标准
+     */
+    "resolvePackageJsonExports": true,
+
+    /**
+     * 支持 package.json imports 字段
+     * 用于包内部模块解析
+     */
+    "resolvePackageJsonImports": true,
+
+    /**
+     * 允许从没有默认导出的模块中导入默认值
+     * 提高与 CommonJS 模块的互操作性
+     */
+    "allowSyntheticDefaultImports": true,
+
+    /**
+     * Node.js 类型定义
+     * 提供 Node.js 内置模块的类型支持
+     */
     "types": ["node"],
 
-    // Output Options
-    "sourceMap": true,
+    // ===========================================
+    // 输出配置 (Emit)
+    // ===========================================
+
+    /**
+     * 输出目录
+     */
+    "outDir": "./dist",
+
+    /**
+     * 生成声明文件 (.d.ts)
+     * 为库的使用者提供类型信息
+     */
     "declaration": true,
+
+    /**
+     * 生成声明文件的 source map
+     * 改善类型错误的调试体验
+     */
     "declarationMap": true,
 
-    // Project References
-    "composite": true,
+    /**
+     * 生成源码映射文件
+     * 用于调试时映射到原始 TypeScript 源码
+     */
+    "sourceMap": true,
 
-    // Strict Checks
+    /**
+     * 移除注释
+     * 减小输出文件体积，生产环境推荐
+     */
+    "removeComments": true,
+
+    /**
+     * 导入辅助函数
+     * 从 tslib 导入辅助函数而不是内联，减小输出体积
+     */
+    "importHelpers": true,
+
+    /**
+     * 下级迭代
+     * 为旧版本 JavaScript 提供更准确的迭代器支持
+     */
+    "downlevelIteration": true,
+
+    // ===========================================
+    // 互操作约束 (Interop Constraints)
+    // ===========================================
+
+    /**
+     * ES 模块互操作
+     * 改善 ES 模块和 CommonJS 模块之间的互操作性
+     * 推荐用于现代项目
+     */
+    "esModuleInterop": true,
+
+    /**
+     * 强制文件名大小写一致性
+     * 避免不同操作系统间的文件系统差异问题
+     */
+    "forceConsistentCasingInFileNames": true,
+
+    /**
+     * 隔离模块
+     * 确保每个文件可以独立编译，提高构建工具兼容性
+     */
+    "isolatedModules": true,
+
+    /**
+     * 逐字模块语法
+     * 确保导入/导出语法的一致性，避免模块系统混淆
+     */
+    "verbatimModuleSyntax": true,
+
+    // ===========================================
+    // 类型检查配置 (Type Checking)
+    // ===========================================
+
+    /**
+     * 启用所有严格类型检查选项
+     * 包括 noImplicitAny、strictNullChecks 等
+     */
     "strict": true,
-    "noImplicitAny": true,
-    "strictNullChecks": true,
-    "strictFunctionTypes": true,
+
+    /**
+     * 精确的可选属性类型
+     * 区分 undefined 和未定义的属性，提供更准确的类型检查
+     */
+    "exactOptionalPropertyTypes": true,
+
+    /**
+     * 检查函数中的所有代码路径是否都有返回值
+     */
     "noImplicitReturns": true,
+
+    /**
+     * 检查 switch 语句中是否有 fallthrough 情况
+     */
+    "noFallthroughCasesInSwitch": true,
+
+    /**
+     * 检查未使用的局部变量
+     * 帮助发现代码中的潜在问题
+     */
     "noUnusedLocals": true,
+
+    /**
+     * 检查未使用的参数
+     * 提高代码质量
+     */
     "noUnusedParameters": true,
 
-    // Advanced Options
+    /**
+     * 要求 override 关键字
+     * 明确标识覆盖的类成员，避免意外覆盖
+     */
+    "noImplicitOverride": true,
+
+    /**
+     * 检查未经检查的索引访问
+     * 为索引签名访问添加 undefined 检查，提高类型安全性
+     */
+    "noUncheckedIndexedAccess": true,
+
+    /**
+     * 在 catch 子句中使用 unknown 类型
+     * 现代错误处理的最佳实践
+     */
+    "useUnknownInCatchVariables": true,
+
+    // ===========================================
+    // 项目配置 (Projects)
+    // ===========================================
+
+    /**
+     * 复合项目
+     * 启用项目引用和增量构建
+     */
+    "composite": true,
+
+    /**
+     * 增量编译
+     * 提高大型项目的编译性能
+     */
+    "incremental": true,
+
+    // ===========================================
+    // 完整性检查 (Completeness)
+    // ===========================================
+
+    /**
+     * 跳过库文件的类型检查
+     * 提高编译性能，推荐用于生产环境
+     */
     "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true,
-    "allowSyntheticDefaultImports": true
+
+    // ===========================================
+    // 编译器诊断 (Compiler Diagnostics)
+    // ===========================================
+
+    /**
+     * 不截断错误信息
+     * 显示完整的类型错误信息，便于调试
+     */
+    "noErrorTruncation": true
   }
 }
 ```
@@ -792,6 +1193,7 @@ export default tseslint.config(
 ```javascript
 import { readFileSync } from "fs";
 import { resolve } from "path";
+import typescript from "@rollup/plugin-typescript";
 import dts from "rollup-plugin-dts";
 
 /**
@@ -810,14 +1212,20 @@ export function createRollupConfig(packageDir, options = {}) {
     plugins = [],
     input = "src/index.ts",
     formats = ["esm", "cjs"],
-    generateDts = true
+    generateDts = true,
+    skipDtsForUtility = false
   } = options;
 
   // 基础外部依赖
   const baseExternal = [
     ...Object.keys(pkg.dependencies || {}),
     ...Object.keys(pkg.peerDependencies || {}),
-    "radash"
+    "radash",
+    // Node.js 内置模块
+    "fs",
+    "path",
+    "url",
+    "util"
   ];
 
   const configs = [];
@@ -826,8 +1234,27 @@ export function createRollupConfig(packageDir, options = {}) {
   if (formats.includes("esm") || formats.includes("cjs")) {
     configs.push({
       input: resolve(packageDir, input),
-      external: [...baseExternal, ...external],
-      plugins: [...plugins],
+      external: (id) => {
+        if (
+          baseExternal.some((ext) => id === ext || id.startsWith(ext + "/"))
+        ) {
+          return true;
+        }
+        return external.some((ext) => id === ext || id.startsWith(ext + "/"));
+      },
+      plugins: [
+        typescript({
+          tsconfig: resolve(packageDir, "tsconfig.json"),
+          declaration: false,
+          declarationMap: false,
+          compilerOptions: {
+            declaration: false,
+            declarationMap: false,
+            composite: false
+          }
+        }),
+        ...plugins
+      ],
       output: [
         formats.includes("esm") && {
           file: resolve(packageDir, "dist/esm/index.mjs"),
@@ -845,10 +1272,17 @@ export function createRollupConfig(packageDir, options = {}) {
   }
 
   // TypeScript 声明文件配置
-  if (generateDts) {
+  if (generateDts && !skipDtsForUtility) {
     configs.push({
       input: resolve(packageDir, input),
-      external: [...baseExternal, ...external],
+      external: (id) => {
+        if (
+          baseExternal.some((ext) => id === ext || id.startsWith(ext + "/"))
+        ) {
+          return true;
+        }
+        return external.some((ext) => id === ext || id.startsWith(ext + "/"));
+      },
       plugins: [dts()],
       output: {
         file: resolve(packageDir, "dist/types/index.d.ts"),
@@ -859,6 +1293,15 @@ export function createRollupConfig(packageDir, options = {}) {
 
   return configs;
 }
+```
+
+各包通过相对路径引用：
+
+```javascript
+// packages/core/rollup.config.mjs
+import { createRollupConfig } from "../../shared/rollup.config.base.mjs";
+
+export default createRollupConfig(import.meta.dirname);
 ```
 
 ## 3. 核心架构设计
@@ -902,14 +1345,6 @@ packages/
 │   ├── package.json
 │   ├── tsconfig.json
 │   └── rollup.config.mjs
-├── shared/                            # @okutils/fetch-shared
-│   ├── src/
-│   │   ├── index.ts
-│   │   ├── rollup.config.base.mjs     # 共享 Rollup 配置
-│   │   ├── tsconfig.base.json         # 共享 TypeScript 配置
-│   │   └── eslint.config.shared.mjs   # 共享 ESLint 配置
-│   ├── package.json
-│   └── tsconfig.json
 └── plugins/                           # 插件目录 (非包)
     ├── cache/                         # @okutils/fetch-plugin-cache
     ├── retry/                         # @okutils/fetch-plugin-retry
@@ -1387,57 +1822,106 @@ interface ICoreHooks {
 ```typescript
 // 基础错误类
 class FetchError extends Error {
-  name: string = "FetchError";
+  override name: string = "FetchError";
   request: Request;
-  response?: Response;
+  response?: Response | undefined;
   options: IRequestOptions;
 
   constructor(
     message: string,
     request: Request,
-    response?: Response,
+    response?: Response | undefined,
     options?: IRequestOptions
-  );
+  ) {
+    super(message);
+    this.request = request;
+    this.response = response;
+    this.options = options || {};
+  }
 }
 
 // HTTP 错误
 class HTTPError extends FetchError {
-  name: string = "HTTPError";
-  response: Response;
+  override name: string = "HTTPError";
+  override response: Response;
   status: number;
   statusText: string;
-}
-
-// 超时错误
-class TimeoutError extends FetchError {
-  name: string = "TimeoutError";
-  timeout: number;
-}
-
-// 网络错误
-class NetworkError extends FetchError {
-  name: string = "NetworkError";
-  originalError?: Error;
-}
-
-// 解析错误
-class ParseError extends FetchError {
-  name: string = "ParseError";
-  responseText?: string;
-}
-
-// 请求取消错误
-class AbortError extends FetchError {
-  name: string = "AbortError";
-  signal?: AbortSignal;
-  originalError?: DOMException;
 
   constructor(
     message: string,
     request: Request,
-    signal?: AbortSignal,
+    response: Response,
+    options?: IRequestOptions
+  ) {
+    super(message, request, response, options);
+    this.response = response;
+    this.status = response.status;
+    this.statusText = response.statusText;
+  }
+}
+
+// 超时错误
+class TimeoutError extends FetchError {
+  override name: string = "TimeoutError";
+  timeout: number;
+
+  constructor(
+    message: string,
+    request: Request,
+    timeout: number,
+    options?: IRequestOptions
+  ) {
+    super(message, request, undefined, options);
+    this.timeout = timeout;
+  }
+}
+
+// 网络错误
+class NetworkError extends FetchError {
+  override name: string = "NetworkError";
+  originalError?: Error | undefined;
+
+  constructor(
+    message: string,
+    request: Request,
+    response?: Response,
     options?: IRequestOptions,
-    originalError?: DOMException
+    originalError?: Error | undefined
+  ) {
+    super(message, request, response, options);
+    this.originalError = originalError;
+  }
+}
+
+// 解析错误
+class ParseError extends FetchError {
+  override name: string = "ParseError";
+  responseText?: string | undefined;
+
+  constructor(
+    message: string,
+    request: Request,
+    response?: Response,
+    options?: IRequestOptions,
+    responseText?: string | undefined
+  ) {
+    super(message, request, response, options);
+    this.responseText = responseText;
+  }
+}
+
+// 请求取消错误
+class AbortError extends FetchError {
+  override name: string = "AbortError";
+  signal?: AbortSignal | undefined;
+  originalError?: DOMException | undefined;
+
+  constructor(
+    message: string,
+    request: Request,
+    signal?: AbortSignal | undefined,
+    options?: IRequestOptions,
+    originalError?: DOMException | undefined
   ) {
     super(message, request, undefined, options);
     this.signal = signal;
@@ -1474,6 +1958,108 @@ interface IUser {
 const user = await fetch.get<IUser>("/users/:id", {
   params: { id: 1, include: ["posts"] } as IUserParams
 });
+```
+
+### 6.5 类型安全最佳实践
+
+#### 6.5.1 exactOptionalPropertyTypes 配置的影响
+
+当启用 `exactOptionalPropertyTypes: true` 配置时，TypeScript 会对可选属性进行更严格的类型检查：
+
+```typescript
+// ❌ 错误：不能将 undefined 赋值给不接受 undefined 的类型
+interface IConfig {
+  timeout?: number;
+}
+
+const config: IConfig = {
+  timeout: undefined // 错误！
+};
+
+// ✅ 正确：明确声明可选属性类型包含 undefined
+interface IConfig {
+  timeout?: number | undefined;
+}
+
+const config: IConfig = {
+  timeout: undefined // 正确
+};
+```
+
+#### 6.5.2 错误类继承规范
+
+在错误类的继承中，必须使用 `override` 修饰符明确标记重写的属性：
+
+```typescript
+// ✅ 正确的错误类定义
+export class HTTPError extends FetchError {
+  override name: string = "HTTPError"; // 必须使用 override
+  override response: Response; // 重新定义父类的可选属性为必需
+  status: number;
+  statusText: string;
+}
+```
+
+#### 6.5.3 Request/Response 对象类型处理
+
+在处理原生 Request 对象时，需要注意类型转换：
+
+```typescript
+// ❌ 错误：Request 构造函数不接受 undefined body
+const request = new Request(url, {
+  method: "POST",
+  body: bodyData // 如果 bodyData 是 BodyInit | undefined，会报错
+});
+
+// ✅ 正确：使用空值合并操作符转换
+const request = new Request(url, {
+  method: "POST",
+  body: bodyData ?? null // 将 undefined 转换为 null
+});
+```
+
+#### 6.5.4 数组访问的安全性检查
+
+在插件开发中，对数组元素的访问需要进行空值检查：
+
+```typescript
+// ❌ 错误：可能访问到 undefined
+const processQueue = () => {
+  for (let i = queue.length - 1; i >= 0; i--) {
+    const item = queue[i];
+    if (Date.now() - item.timestamp > timeout) {
+      // item 可能是 undefined
+      // ...
+    }
+  }
+};
+
+// ✅ 正确：添加空值检查
+const processQueue = () => {
+  for (let i = queue.length - 1; i >= 0; i--) {
+    const item = queue[i];
+    if (item && Date.now() - item.timestamp > timeout) {
+      // 安全的访问
+      // ...
+    }
+  }
+};
+```
+
+#### 6.5.5 插件开发类型安全规范
+
+1. **空值检查**：对所有可能为 `undefined` 的值进行检查
+2. **明确类型声明**：可选属性类型必须包含 `| undefined`
+3. **使用类型守卫**：在复杂的类型判断中使用类型守卫函数
+4. **避免类型断言**：尽量使用类型检查而非强制类型断言
+
+```typescript
+// ✅ 推荐的插件接口定义
+interface IPluginOptions {
+  enabled?: boolean | undefined;
+  config?: Record<string, any> | undefined;
+  onError?: ((error: Error) => void) | undefined;
+}
 ```
 
 ## 7. 错误处理机制
@@ -2257,6 +2843,21 @@ await fetch.post("/api/upload", formData);
 
 ### 12.2 Monorepo 工作流程
 
+#### 12.2.0 共享配置管理最佳实践
+
+**设计变更说明**：原设计文档中提出了 `@okutils/fetch-shared` 可发布包的概念，但在实际实现中发现这种方案存在以下问题：
+
+1. **循环依赖风险**：共享包需要构建工具，但构建工具又依赖共享配置
+2. **过度工程**：为简单的配置文件创建可发布包增加了不必要的复杂性
+3. **维护负担**：需要单独管理共享包的版本和发布
+
+**当前最佳实践方案**：
+
+- 将共享配置放在 `shared/` 目录（非包）
+- 各包通过相对路径引用共享配置
+- 符合 Rush Stack、Lerna 等成熟 monorepo 项目的做法
+- 简化依赖管理，提高开发效率
+
 #### 12.2.1 开发流程
 
 ```bash
@@ -2317,62 +2918,27 @@ pnpm release
 
 - `https://github.com/rollup/rollup`
 
-### 12.4 命名规范
+### 12.4 开发规范
 
-#### 12.5.1 TypeScript 类型命名
+- 详见[Node.js 项目开发规范](https://narukeu.github.io/articles/frontend-naming-conventions)
 
-- Interface: 使用 I 前缀（如 `IConfig`, `ILoader`, `IDevServerConfig`）。
-  - **如果接口为公共或基础接口，建议在名称中包含 `Base` 或 `Public` 字样**（如 `IBaseOptions`, `IPublicFormDataType`），以便一目了然地识别其用途和继承关系。
-- Type: 使用 T 前缀（如 `TBuildMode`, `TAssetInfo`, `TLoaderResult`）。
-- Enum：使用 E 前缀（如 `EBuildStatus`, `ELoaderType`, `EHMREvent`）。
-- Enum 成员：使用 UPPER_SNAKE_CASE（如 `SUCCESS`, `FAILURE`, `PENDING`）。
-- Generic 泛型：使用单个大写字母，从 T 开始（如 `T`, `U`, `K`, `V`），如需表达更复杂含义可用 PascalCase 组合词（如 `TResultData`、`TOptions`），集合类泛型可用复数（如 `TItems`）。
-- Interface 主要用于结构描述（如对象的属性、方法等），Type 适合联合类型、交叉类型、条件类型等更复杂场景。接口支持声明合并，类型别名不支持。
-- 命名空间与模块（namespace/module）：使用 PascalCase（如 `Utils`, `ConfigParser`）。
+### 12.5 类型安全开发流程
 
-##### 为什么要在类型前面加前缀？
+#### 12.5.1 开发前检查
 
-**尽管**这种做法并不被广泛推荐，**但在很多情况下**，为了明确区分业务相关的组件、变量和服务与 TypeScript 类型，采用前缀可以提供清晰的标识。例如，在先前的一些项目中，尤其是基于 Node.js 后端以及使用 React 的前端项目，许多实体均采用了大驼峰命名法。为了进一步增强代码的可读性和维护性，通过为 TypeScript 类型和接口添加 `T` 和 `I` 前缀，能够有效避免混淆，确保开发过程中对不同类型元素的识别**更加直观准确**。
+1. **确保 TypeScript 配置正确**：检查 `exactOptionalPropertyTypes` 等严格选项已启用
+2. **理解类型要求**：明确可选属性必须显式声明 `| undefined`
+3. **准备类型守卫**：对于复杂类型判断，准备好类型守卫函数
 
-#### 12.5.2 代码命名规范
+#### 12.5.2 编码规范
 
-- 常量: 使用 UPPER_SNAKE_CASE（如 `DEFAULT_PORT`, `MAX_THREADS`, `BUILD_TIMEOUT`），全局常量建议加模块前缀（如 `BUILD_DEFAULT_PORT`）。
-- 私有方法: 使用 `_` 前缀（如 `_processModule`, `_handleError`, `_validateConfig`）。
-- 类名: 使用 PascalCase（如 `Compiler`, `DevServer`, `AssetLoader`）。
-  - **如果类为基础类或公共基类，建议名称中包含 `Base` 或 `Abstract` 字样**（如 `BaseController`, `AbstractService`），便于识别继承体系。
-- 函数/变量: 使用 camelCase（如 `buildProject`, `configPath`, `moduleInfo`）。
-  - **不限制名称长度，推荐根据实际用途使用有意义且描述性强的长名称**，如 `getUserProfileByIdAsync`、`defaultUserAvatarUrl`，好的名字比注释更直观。
-- 未使用的参数: 使用 `_` 前缀，防止产生歧义（如 `array.map((_item, index) => index * 2)`）。当只用第二或后续参数时，前面未用参数也应加 `_` 前缀。
-- 文件名: 使用 kebab-case（如 `build-config.ts`, `dev-server.ts`, `asset-loader.ts`），避免与保留字、已有 npm 包重名。
-- 目录名: 使用 kebab-case（如 `build-tools/`, `config-parser/`, `utils/`），避免单字符目录名。
-- 测试文件命名：
-  - 单元测试文件建议以 `.spec.ts` 结尾（如 `math-utils.spec.ts`），用于测试单个函数、类、模块的行为。
-  - 集成测试或端到端测试文件建议以 `.test.ts` 结尾（如 `api-integration.test.ts`），用于测试多个模块协作或完整业务流程。
-- 缩写统一大写（如 `APIClient`, `HTMLParser`），避免 `ApiClient`、`HtmlParser` 等写法，且避免无意义缩写。
-- 异步函数建议以 Async 结尾或用动词前缀（如 `fetchDataAsync`, `getUserInfo`）。
-- React 组件名用 PascalCase，hooks 用 use 前缀（如 `useUserInfo`）。
-- 类型守卫函数统一用 isXxx 命名（如 `isString`）。
+1. **错误类继承**：使用 `override` 修饰符标记重写的属性
+2. **空值处理**：使用 `??` 操作符处理 `undefined` 到其他类型的转换
+3. **数组访问**：对数组元素访问进行空值检查
+4. **插件开发**：严格遵循类型安全规范
 
-#### 12.5.3 布尔值命名规范
+#### 12.5.3 验证流程
 
-- 使用 `is`, `has`, `can`, `should`, `will` 等前缀（如 `isLoading`, `hasError`, `canBuild`, `shouldOptimize`），避免 `isNotX`、`flagX` 等反模式，布尔变量应表达正向含义。
-
-#### 12.5.4 事件和回调命名
-
-- 事件处理函数: 使用 `handle` 或 `on` 前缀（如 `handleClick`, `onFileChange`），事件名用 PascalCase（如 `onUserLogin`）。
-- 回调函数: 使用描述性动词（如 `onComplete`, `onError`, `beforeBuild`），回调参数用 `event` 结尾（如 `onChangeEvent`）。
-
-#### 12.5.5 模块导出命名
-
-- 默认导出: 使用文件主要功能的名称
-- 命名导出: 使用具体的功能名称
-- 重新导出: 保持原有命名或使用 `as` 重命名以避免冲突。
-
-#### 12.6.6 其他
-
-- 变量声明一行一个（如 `let a = 1; let b = 2;`），避免 `let a = 1, b = 2;`。
-- 优先使用箭头函数，必要时再用 `function`。
-- 花括号、缩进等风格细节可参考微软官方规范（如 4 空格缩进，else 单独一行）。
-- 测试描述（describe/it）用英文，表达行为和预期结果。
-- 类型断言建议谨慎使用，优先类型收窄。
-- 代码注释建议用 TSDoc 风格，除非这个模块不用 TS 而用 JS。
+1. **本地类型检查**：`pnpm type-check` 验证所有包的类型正确性
+2. **构建验证**：`pnpm build` 确保代码能够正确编译
+3. **持续集成**：在 CI 流程中强制执行类型检查
