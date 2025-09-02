@@ -302,14 +302,43 @@ export default tseslint.config(
 
 ## TypeScript 类型命名
 
-- Interface: 使用大驼峰（如 `Config`, `Loader`, `DevServerConfig`）。
-  - **如果接口为公共或基础接口，建议在名称中包含 `Base` 或 `Public` 字样**（如 `BaseOptions`, `PublicFormDataType`），以便一目了然地识别其用途和继承关系。
-- Type: 使用大驼峰（如 `BuildMode`, `AssetInfo`, `LoaderResult`）。
-- Enum：使用大驼峰（如 `BuildStatus`, `LoaderType`, `HMREvent`）。
-- Enum 成员：使用 UPPER_SNAKE_CASE（如 `SUCCESS`, `FAILURE`, `PENDING`）。
-- Generic 泛型：使用单个大写字母，从 T 开始（如 `T`, `U`, `K`, `V`），如需表达更复杂含义可用 PascalCase 组合词（如 `TResultData`、`TOptions`），集合类泛型可用复数（如 `TItems`）。
-- Interface 主要用于结构描述（如对象的属性、方法等），Type 适合联合类型、交叉类型、条件类型等更复杂场景。接口支持声明合并，类型别名不支持。
-- 命名空间与模块（namespace/module）：使用 PascalCase（如 `Utils`, `ConfigParser`）。
+### 基础类型命名
+
+- Interface: 使用 PascalCase（如 `UserConfig`, `ApiResponse`, `DatabaseConnection`）
+  - **如果接口为公共或基础接口，建议在名称中包含 `Base` 或 `Public` 字样**（如 `BaseOptions`, `PublicFormDataType`）
+- Type: 使用 PascalCase（如 `BuildMode`, `AssetInfo`, `LoaderResult`）
+- Enum：使用 PascalCase（如 `UserStatus`, `ApiEndpoint`, `ErrorCode`）
+- Enum 成员：使用 UPPER_SNAKE_CASE（如 `ACTIVE`, `INACTIVE`, `PENDING`）
+
+### 泛型命名
+
+- 简单泛型：使用单个大写字母，从 T 开始（如 `T`, `U`, `K`, `V`）
+- 复杂泛型：使用 PascalCase 组合词（如 `TResultData`, `TRequestOptions`）
+- 集合类泛型：可使用复数形式（如 `TItems`, `TEntities`）
+- 约束泛型：使用有意义的名称表达约束关系（如 `TEntity extends BaseEntity`）
+
+### 函数类型
+
+- 函数类型表达式：使用描述性 PascalCase（如 `EventHandler`, `DataValidator`, `AsyncProcessor`）
+- 回调函数类型：以用途命名（如 `OnChangeCallback`, `ErrorHandler`）
+
+### 高级类型
+
+- 映射类型：使用 PascalCase，体现转换关系（如 `Partial<T>`, `ReadonlyKeys<T>`）
+- 条件类型：使用 PascalCase，体现条件逻辑（如 `ApiResult<T>`, `NonNullable<T>`）
+- 工具类型：使用 PascalCase（如 `DeepPartial<T>`, `KeysOfType<T, U>`）
+
+### 模块和命名空间
+
+- 命名空间：使用 PascalCase（如 `Utils`, `ConfigParser`, `ApiClient`）
+- 模块声明：使用 PascalCase（如 `declare module 'CustomModule'`）
+
+### 类型组合原则
+
+- Interface 主要用于对象结构描述，支持声明合并和继承
+- Type 适合联合类型、交叉类型、条件类型等复杂场景
+- 优先使用 Interface 定义对象结构，Type 定义计算类型
+- 索引签名应明确包含 undefined 类型（配合 `noUncheckedIndexedAccess`）
 
 ## 代码命名规范
 
