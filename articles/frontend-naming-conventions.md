@@ -302,18 +302,14 @@ export default tseslint.config(
 
 ## TypeScript 类型命名
 
-- Interface: 使用 I 前缀（如 `IConfig`, `ILoader`, `IDevServerConfig`）。
-  - **如果接口为公共或基础接口，建议在名称中包含 `Base` 或 `Public` 字样**（如 `IBaseOptions`, `IPublicFormDataType`），以便一目了然地识别其用途和继承关系。
-- Type: 使用 T 前缀（如 `TBuildMode`, `TAssetInfo`, `TLoaderResult`）。
-- Enum：使用 E 前缀（如 `EBuildStatus`, `ELoaderType`, `EHMREvent`）。
+- Interface: 使用大驼峰（如 `Config`, `Loader`, `DevServerConfig`）。
+  - **如果接口为公共或基础接口，建议在名称中包含 `Base` 或 `Public` 字样**（如 `BaseOptions`, `PublicFormDataType`），以便一目了然地识别其用途和继承关系。
+- Type: 使用大驼峰（如 `BuildMode`, `AssetInfo`, `LoaderResult`）。
+- Enum：使用大驼峰（如 `BuildStatus`, `LoaderType`, `HMREvent`）。
 - Enum 成员：使用 UPPER_SNAKE_CASE（如 `SUCCESS`, `FAILURE`, `PENDING`）。
 - Generic 泛型：使用单个大写字母，从 T 开始（如 `T`, `U`, `K`, `V`），如需表达更复杂含义可用 PascalCase 组合词（如 `TResultData`、`TOptions`），集合类泛型可用复数（如 `TItems`）。
 - Interface 主要用于结构描述（如对象的属性、方法等），Type 适合联合类型、交叉类型、条件类型等更复杂场景。接口支持声明合并，类型别名不支持。
 - 命名空间与模块（namespace/module）：使用 PascalCase（如 `Utils`, `ConfigParser`）。
-
-### 为什么要在类型前面加前缀？
-
-**尽管**这种做法并不被广泛推荐，**但在很多情况下**，为了明确区分业务相关的组件、变量和服务与 TypeScript 类型，采用前缀可以提供清晰的标识。例如，在先前的一些项目中，尤其是基于 Node.js 后端以及使用 React 的前端项目，许多实体均采用了大驼峰命名法。为了进一步增强代码的可读性和维护性，通过为 TypeScript 类型、接口、枚举添加 `T` `I` `E` 前缀，能够有效避免混淆，确保开发过程中对不同类型元素的识别**更加直观准确**。
 
 ## 代码命名规范
 
