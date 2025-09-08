@@ -123,7 +123,11 @@ export default tseslint.config(
   "tabWidth": 2,
   "singleQuote": false,
   "printWidth": 80,
-  "trailingComma": "none"
+  "trailingComma": "all",
+  "arrowParens": "always",
+  "bracketSpacing": true,
+  "bracketSameLine": false,
+  "endOfLine": "lf"
 }
 ```
 
@@ -198,7 +202,8 @@ export default tseslint.config(
     "skipLibCheck": true,
     "resolveJsonModule": true,
     "resolvePackageJsonExports": true,
-    "resolvePackageJsonImports": true
+    "resolvePackageJsonImports": true,
+    "erasableSyntaxOnly": true // 如果环境为 Node.js 22+ 或者需要 SWC 时开启
   }
 }
 ```
@@ -207,6 +212,7 @@ export default tseslint.config(
 
 - `noErrorTruncation`: 显示完整的类型错误信息，便于调试和问题定位
 - `resolvePackageJsonExports/Imports`: 支持现代包管理器和构建工具的标准
+- `erasableSyntaxOnly`: 仅允许可擦除语法，对开发更友好。
 
 #### 5. 构建优化配置
 
