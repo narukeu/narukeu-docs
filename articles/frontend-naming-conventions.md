@@ -235,7 +235,7 @@
 针对 NestJS/Fastify/Express 等后端项目，推荐按运行时模块策略选择一套配置：
 
 - 若使用 ESM（package.json `{ "type": "module" }`，或 .mts/.mjs）：使用 NodeNext 方案；
-- 若仍以 CJS 为主：使用 Node16 方案。
+- 若仍以 CJS 为主：使用 Node18/Node20 方案（按运行时版本选择，优先 Node20）。
 
 NodeNext（ESM）示例：
 
@@ -275,7 +275,10 @@ NodeNext（ESM）示例：
 }
 ```
 
-Node16（CJS）示例：
+> [!TIP]
+> 运行时为 Node 18/20 时，`moduleResolution` 建议分别设置为 `"Node18"`/`"Node20"`；本规范不再提供 Node16 及以下示例。
+
+Node18（CJS）示例：
 
 ```json
 {
@@ -284,7 +287,7 @@ Node16（CJS）示例：
     "target": "ES2022",
     "lib": ["ES2022"],
     "module": "CommonJS",
-    "moduleResolution": "Node16",
+    "moduleResolution": "Node18",
     "moduleDetection": "auto",
 
     "strict": true,
@@ -566,18 +569,18 @@ const props = withDefaults(defineProps<IDialogProps>(), {
 1. 基于 React 16+ 的项目必须使用 TypeScript。
 2. 基于 React 16+ 的项目应当使用函数式组件，简化组件生命周期管理。
 3. 对于非 SSR 的项目，状态管理库使用 `zustand` 或 `redux`。
-4. 在定义组件时，应严格声明 `prop` 的类型并据此使用。建议将接收 props 的参数统一命名为 `props`。对于函数式组件，应利用 `React.FC` 来指定组件的返回类型，确保类型安全及代码的一致性。
+4. 在定义组件时，应严格声明 props 的类型并据此使用，建议将接收 props 的参数统一命名为 `props`。对于函数式组件，不要默认使用 `React.FC`；采用“函数签名 + Props 类型”的方式定义组件，让返回类型由 TypeScript 推断，仅在确有需要时（如需通过类型系统显式提供 `children`）再使用 `React.FC`。
 
    ```tsx
-   import type { FC, ReactNode } from "react";
+   import type { ReactNode } from "react";
 
-   interface IAuthCardProps {
+   interface AuthCardProps = {
      title: string;
      content: ReactNode;
-     footer: ReactNode;
-   }
+     footer?: ReactNode;
+   };
 
-   const AuthCard: FC<IAuthCardProps> = (props) => {
+   const AuthCard = (props: AuthCardProps) => {
      // 此处省略 500 字
    };
    ```
@@ -590,7 +593,7 @@ const props = withDefaults(defineProps<IDialogProps>(), {
 10. 使用 useEffect 的依赖数组时，确保包含所有依赖项。
 11. 自定义 Hook 应以 `use` 开头，复用组件逻辑。
 12. 使用 Context API 共享全局状态，避免 prop drilling。
-13. 对于表单处理，推荐使用 `react-hook-form` 或 `formik`。
+13. 对于表单处理，推荐使用 `react-hook-form`。
 14. 使用 `react-use` 作为 hook 工具库。
 
 ## SolidJS 项目规范
@@ -604,7 +607,7 @@ const props = withDefaults(defineProps<IDialogProps>(), {
 7. 使用 `Show`、`For`、`Switch` 等控制流组件替代条件渲染。
 8. 状态管理使用 SolidJS Store 或第三方库如 `solid-zustand`。
 9. 路由使用 `@solidjs/router`。
-10. 样式使用 CSS Modules 或 styled-components。
+10. 样式使用 CSS Modules 或 solid-styled-components。
 11. 使用 `createResource` 处理异步数据获取。
 12. 合理使用 `batch` 批量更新状态。
 13. 使用 `onMount` 和 `onCleanup` 处理组件生命周期。
