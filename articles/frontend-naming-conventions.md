@@ -15,103 +15,19 @@
 9. 变量、类型、组件、方法不得用汉语拼音特别是拼音缩写。
 10. 换行符为 `LF`，Git 也要如此设置。
 11. 谨慎使用 `any` 类型，必须使用时应添加注释说明原因。这符合 ESLint `@typescript-eslint/no-explicit-any` 和 `@typescript-eslint/no-unsafe-assignment` 规则。
-12. ESLint 配置文件必须为 flatConfig 格式，必须添加 `prettier`、`import-x` 和 `tsdoc` 插件。推荐使用下面的基本配置示例（需要配合现代化的TypeScript配置使用）：
+12. ESLint 配置文件必须为 flatConfig 格式，并集成 `prettier`、`import-x`、`tsdoc` 与 `typescript-eslint`。为避免重复，请直接参考示例文件：[codes/eslint-flat-config.md](https://narukeu.github.io/codes/eslint-flat-config.html)（含基础版、带 import-x、React 版）。
 
-```typescript
-import js from "@eslint/js";
-import { createTypeScriptImportResolver } from "eslint-import-resolver-typescript";
-import * as importX from "eslint-plugin-import-x";
+**要点：**
 
-import prettierRecommend from "eslint-plugin-prettier/recommended";
-import tsdoc from "eslint-plugin-tsdoc";
-import globals from "globals";
-import tseslint from "typescript-eslint";
-
-import type { Linter } from "eslint";
-
-export default tseslint.config(
-  js.configs.recommended,
-  tseslint.configs.recommended,
-  // tseslint.configs.recommendedTypeChecked,
-  prettierRecommend,
-  importX.flatConfigs.recommended,
-  importX.flatConfigs.typescript,
-  {
-    files: ["src/**/*.{js,mjs,cjs,ts,mts,cts}"],
-    languageOptions: {
-      ecmaVersion: 2022, // 与 tsconfig target: "ES2022" 保持一致
-      globals: { ...globals.browser, ...globals.node },
-      parser: tseslint.parser,
-      parserOptions: {
-        project: "./tsconfig.json",
-        tsconfigRootDir: import.meta.dirname,
-        projectService: true
-      }
-    },
-    plugins: {
-      tsdoc,
-      "@typescript-eslint": tseslint.plugin,
-      "import-x": importX
-    },
-    rules: {
-      "tsdoc/syntax": "warn",
-      "prefer-const": "warn",
-      "@typescript-eslint/no-unused-vars": [
-        "warn",
-        {
-          argsIgnorePattern: "^_",
-          varsIgnorePattern: "^_"
-        }
-      ],
-      "@typescript-eslint/no-explicit-any": "warn",
-      "@typescript-eslint/no-unsafe-assignment": "warn",
-      "import-x/order": [
-        "warn",
-        {
-          groups: [
-            "builtin",
-            "external",
-            "internal",
-            "unknown",
-            "parent",
-            "sibling",
-            "index",
-            "object",
-            "type"
-          ],
-          alphabetize: {
-            order: "asc",
-            caseInsensitive: false
-          }
-        }
-      ]
-    },
-    settings: {
-      "import/resolver-next": [
-        createTypeScriptImportResolver({
-          // bun: true,
-          alwaysTryTypes: true,
-          extensions: [
-            ".js",
-            ".cjs",
-            ".mjs",
-            ".jsx",
-            ".ts",
-            ".cjs",
-            ".cts",
-            ".mts",
-            ".tsx",
-            ".json"
-          ]
-        })
-      ]
-    }
-  }
-) as Linter.Config;
-```
+- 使用 `import-x.flatConfigs.recommended` 与 `import-x.flatConfigs.typescript`；
+- files 覆盖 `**/*.{js,mjs,cjs,jsx,ts,tsx,mts,cts}`；
+- TypeScript 场景启用 `parserOptions.project` 与 `projectService: true`；
+- 在 flat config 下使用 `settings["import-x/resolver-next"] = [createTypeScriptImportResolver(...)]` 启用 TS 路径与类型分辨；
+- 需要 Node 与浏览器全局时可合并 `globals.browser` 与 `globals.node`；
+- 导入分组使用 `import-x/order`（规则细节见示例）。
 
 13. 原则上不得使用已经停止维护或长期没有更新的库（如果一个活跃开发的第三方库依赖某个已经停止维护的库，则视情况而定）。
-14. 原则上应使用 `es-toolkit` `radash` 等工具库代替 `lodash` 作为 `JS` 工具库。但如果开发的项目需要运行在旧的操作系统或旧的 `Node.js` 环境中，则不适用此规定。
+14. 原则上应使用 `es-toolkit` 等工具库代替 `lodash` 作为 `JS` 工具库。但如果开发的项目需要运行在旧的操作系统或旧的 `Node.js` 环境中，则不适用此规定。
 15. 语法规范为 `ES2022+`，采用现代化的TypeScript配置，包括严格类型检查、ES模块优先、现代构建工具兼容等设计原则。但如果开发的项目需要运行在旧的操作系统或旧的 `Node.js` 环境中，则不适用此规定。
 
 一个基本的 Prettier 配置如下：
@@ -190,8 +106,8 @@ export default tseslint.config(
 **配置说明**：
 
 - `isolatedModules`: 确保每个文件可独立编译，提高构建工具兼容性
-- `verbatimModuleSyntax`: 确保 import/export 语法的严格性，避免模块系统混淆
-- `esModuleInterop`: 改善 ES 模块和 CommonJS 模块间的互操作性
+- `verbatimModuleSyntax`: 严格按书写保留 import/export；较 `importsNotUsedAsValues`/`preserveValueImports` 更现代（TS ≥5）。
+- `esModuleInterop`: 改善 ES 模块与 CommonJS 互操作（同时隐式开启 `allowSyntheticDefaultImports`）。
 
 #### 4. 开发体验优化
 
@@ -202,8 +118,8 @@ export default tseslint.config(
     "skipLibCheck": true,
     "resolveJsonModule": true,
     "resolvePackageJsonExports": true,
-    "resolvePackageJsonImports": true,
-    "erasableSyntaxOnly": true // 如果环境为 Node.js 22+ 或者需要 SWC 时开启
+    "resolvePackageJsonImports": true
+    // "erasableSyntaxOnly": true // 如果环境为 Node.js 22+ 或者需要 SWC 时开启
   }
 }
 ```
@@ -212,7 +128,11 @@ export default tseslint.config(
 
 - `noErrorTruncation`: 显示完整的类型错误信息，便于调试和问题定位
 - `resolvePackageJsonExports/Imports`: 支持现代包管理器和构建工具的标准
-- `erasableSyntaxOnly`: 仅允许可擦除语法，对开发更友好。
+- `erasableSyntaxOnly`: 可擦除语法
+
+> [!NOTE]
+>
+> `erasableSyntaxOnly` Nest.js 等后端项目暂不考虑开启该选项。
 
 #### 5. 构建优化配置
 
@@ -223,15 +143,21 @@ export default tseslint.config(
     "declarationMap": true,
     "sourceMap": true,
     "importHelpers": true,
-    "removeComments": true,
-    "downlevelIteration": true
+    "removeComments": true
   }
 }
 ```
 
-#### 6. Monorepo 项目配置（按需启用）
+说明：开启 `importHelpers` 需同时安装运行时辅助依赖 `tslib`（dev 或 prod 依业务打包策略决定）。当目标为 `ES2022` 及以上时，一般无需 `downlevelIteration`。
 
-对于 Monorepo 项目，以下配置需要根据项目结构决定是否启用：
+#### 6. Monorepo 项目配置（启用条件 + 基础配置 + references）
+
+启用条件（何时开启 composite/projects 引用）：
+
+- 需要跨包类型检查、增量编译或独立构建产物时启用
+- 单包项目或无需项目引用的简单项目可不启用
+
+基础配置（建议放在仓库共享配置，如 `shared/tsconfig.base.json`）：
 
 ```json
 {
@@ -241,11 +167,7 @@ export default tseslint.config(
 }
 ```
 
-**使用场景**：
-
-- **启用情况**：多包项目，需要跨包类型检查和增量编译时启用
-- **不启用情况**：单体项目或不需要项目引用功能的简单项目
-- **根目录配置**：Monorepo 根目录应使用项目引用而非直接编译：
+根目录配置（使用项目引用，而非在根直接编译）：
 
 ```json
 {
@@ -258,12 +180,16 @@ export default tseslint.config(
 
 #### 单体项目 tsconfig.json
 
+> [!WARNING]
+>
+> 其中关于 `ESM` 的配置，不适用于 Nest.js 、Express 等技术栈较旧的项目，这些项目一般情况下仍然采用原来的配置设置。
+
 ```json
 {
   "$schema": "https://json.schemastore.org/tsconfig",
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["ES2022", "DOM", "DOM.Iterable", "ES2022.Intl"],
+    "lib": ["ES2022", "DOM"],
     "module": "ESNext",
     "moduleResolution": "bundler",
     "moduleDetection": "auto",
@@ -294,17 +220,115 @@ export default tseslint.config(
     "resolvePackageJsonExports": true,
     "resolvePackageJsonImports": true,
     "skipLibCheck": true,
-    "noErrorTruncation": true,
-    "types": ["node"]
+    "noErrorTruncation": true
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]
 }
 ```
 
-#### Monorepo 基础配置 (shared/tsconfig.base.json)
+> [!TIP]
+> 前端模板不再强制注入 `types: ["node"]`，避免在浏览器项目中意外引入 Node 类型；确需使用时请在子 tsconfig 或测试环境下单独开启。
 
-在 Monorepo 项目中，上述配置应作为基础配置，并添加 `"composite": true`。各子包通过 `extends` 继承基础配置。
+#### 后端（Node）项目 tsconfig 基线
+
+针对 NestJS/Fastify/Express 等后端项目，推荐按运行时模块策略选择一套配置：
+
+- 若使用 ESM（package.json `{ "type": "module" }`，或 .mts/.mjs）：使用 NodeNext 方案；
+- 若仍以 CJS 为主：使用 Node16 方案。
+
+NodeNext（ESM）示例：
+
+```json
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "moduleDetection": "auto",
+
+    "strict": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitOverride": true,
+    "noUncheckedIndexedAccess": true,
+    "useUnknownInCatchVariables": true,
+
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "isolatedModules": true,
+
+    "outDir": "./dist",
+    "baseUrl": "./",
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "noErrorTruncation": true,
+    "types": ["node"]
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "**/*.spec.ts"]
+}
+```
+
+Node16（CJS）示例：
+
+```json
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "CommonJS",
+    "moduleResolution": "Node16",
+    "moduleDetection": "auto",
+
+    "strict": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitOverride": true,
+    "noUncheckedIndexedAccess": true,
+    "useUnknownInCatchVariables": true,
+
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "isolatedModules": true,
+
+    "outDir": "./dist",
+    "baseUrl": "./",
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "noErrorTruncation": true,
+    "types": ["node"]
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "**/*.spec.ts"]
+}
+```
+
+#### 关于 `const enum` 与 `isolatedModules` 的注意事项
+
+当 `compilerOptions.isolatedModules: true`（或使用 Vite/SWC/ts-node 以按文件编译）时，直接使用 `const enum` 可能导致运行时值缺失或构建器不支持内联展开。
+
+##### 优先策略：
+
+1. 如果工具链（tsc 编译到 JS）负责最终产物，可继续使用 `const enum`；
+2. 如果由 Babel/SWC/Vite 等转译，则建议：
+   - 关闭 `preserveConstEnums`（让 tsc 参与）或
+   - 改用 `as const` 的对象常量，或普通 `enum`，或字面量联合类型：
+     - 对象常量：`export const ErrorCode = { OK: 0, FAIL: 1 } as const; type ErrorCode = typeof ErrorCode[keyof typeof ErrorCode];`
+     - 字面量联合类型：`type ErrorCode = 0 | 1;`
+
+- 文档规范：本规范在“类型命名”中推荐使用 `const enum` 的场景仅限于确认由 tsc 产出或构建链明确支持 `const enum` 的项目；否则采用上述替代方案。
+
+（Monorepo 说明合并在上一小节，子包通过 `extends` 继承共享基础配置即可，不再重复。）
 
 ## TypeScript 类型命名
 
@@ -315,6 +339,7 @@ export default tseslint.config(
 - Type: 使用 PascalCase（如 `BuildMode`, `AssetInfo`, `LoaderResult`）
 - Enum：使用 PascalCase（如 `UserStatus`, `ApiEndpoint`, `ErrorCode`）
 - Enum 成员：使用 UPPER_SNAKE_CASE（如 `ACTIVE`, `INACTIVE`, `PENDING`）
+- Enum：在工具链支持（由 tsc 产出或明确支持 `const enum` 内联）的项目中优先使用 `const enum` 以减少产物体积；否则改用对象常量配合 `as const`、普通 `enum`，或字面量联合类型（详见 TS 配置章节“const enum 与 isolatedModules 注意事项”）。
 
 ### 泛型命名
 
@@ -336,15 +361,15 @@ export default tseslint.config(
 
 ### 模块和命名空间
 
-- 命名空间：使用 PascalCase（如 `Utils`, `ConfigParser`, `ApiClient`）
-- 模块声明：使用 PascalCase（如 `declare module 'CustomModule'`）
+- 命名空间：仅用于遗留代码维护或第三方类型补充。不在新代码中使用 `namespace`；统一使用 ES 模块（文件即模块）。
+- 模块声明：使用 PascalCase（如 `declare module 'CustomModule'`）；应尽量通过模块化与类型导出替代全局声明。
 
 ### 类型组合原则
 
 - Interface 主要用于对象结构描述，支持声明合并和继承
 - Type 适合联合类型、交叉类型、条件类型等复杂场景
 - 优先使用 Interface 定义对象结构，Type 定义计算类型
-- 索引签名应明确包含 undefined 类型（配合 `noUncheckedIndexedAccess`）
+- 开启 `noUncheckedIndexedAccess` 后，索引访问结果自动变为 `T | undefined`，不需要也不应在索引签名里额外写 `undefined`；请通过显式判空、默认值或非空断言处理。
 
 ## 代码命名规范
 
@@ -357,9 +382,7 @@ export default tseslint.config(
 - 未使用的参数和变量: 使用 `_` 前缀，防止产生歧义和 ESLint 警告（如 `array.map((_item, index) => index * 2)`）。当只用第二或后续参数时，前面未用参数也应加 `_` 前缀。这符合 ESLint `@typescript-eslint/no-unused-vars` 规则的 `argsIgnorePattern` 和 `varsIgnorePattern` 配置。
 - 文件名: 使用 kebab-case（如 `build-config.ts`, `dev-server.ts`, `asset-loader.ts`），避免与保留字、已有 npm 包重名。
 - 目录名: 使用 kebab-case（如 `build-tools/`, `config-parser/`, `utils/`），避免单字符目录名。
-- 测试文件命名：
-  - 单元测试文件建议以 `.spec.ts` 结尾（如 `math-utils.spec.ts`），用于测试单个函数、类、模块的行为。
-  - 集成测试或端到端测试文件建议以 `.test.ts` 结尾（如 `api-integration.test.ts`），用于测试多个模块协作或完整业务流程。
+- 测试文件命名规则请参见“测试规范”章节，避免重复描述。
 - 缩写统一大写（如 `APIClient`, `HTMLParser`），避免 `ApiClient`、`HtmlParser` 等写法，且避免无意义缩写。
 - 异步函数建议以 Async 结尾或用动词前缀（如 `fetchDataAsync`, `getUserInfo`）。
 - React 组件名用 PascalCase，hooks 用 use 前缀（如 `useUserInfo`）。
@@ -382,17 +405,7 @@ export default tseslint.config(
 - 默认导出: 使用文件主要功能的名称
 - 命名导出: 使用具体的功能名称
 - 重新导出: 保持原有命名或使用 `as` 重命名以避免冲突
-- 模块导入应按照以下顺序进行分组（遵循 ESLint `import-x/order` 规则）：
-  1. Node.js 内置模块 (`builtin`)
-  2. 外部库 (`external`)
-  3. 内部模块 (`internal`)
-  4. 未知模块 (`unknown`)
-  5. 父级目录模块 (`parent`)
-  6. 同级目录模块 (`sibling`)
-  7. 索引文件 (`index`)
-  8. 对象导入 (`object`)
-  9. 类型导入 (`type`)
-- 每个分组内按字母顺序排列，区分大小写
+- 模块导入顺序与分组请遵循 ESLint 配置中 `import-x/order` 的统一设置（见“总体要求”里的 ESLint 示例），本处不再重复。
 
 ## 注释规范
 
@@ -440,7 +453,7 @@ export { default as CommonInput } from "./common-input.vue";
 export * from "./types";
 ```
 
-6. 对于采用 Vite、Webpack、Next.js 构建的项目，必须设置路径前缀 `@`，并确保与推荐的TypeScript配置兼容：
+6. 对于采用 Vite、Webpack、Next.js 构建的项目，团队约定推荐设置路径前缀 `@`（可按需采用其他前缀），并确保与推荐的 TypeScript 配置兼容：
    `vite.config.ts`：
 
 ```typescript
@@ -472,7 +485,7 @@ export default defineConfig({
 
 7. 对于复杂状态，应当考虑使用状态管理库进行统一管理，也要对这些状态进行持久化存储。
 8. 可以对 localStorage 进行封装。
-9. 【适用于微信小程序，以及采用了文件系统路由的项目】关于页面的命名，如果 y 包含两个以上单词时，应当使用短横线 `-` 连接，比如：`user-list`。不要使用小驼峰命名。
+9. 【适用于微信小程序，以及采用了文件系统路由的项目】关于页面的命名，如果页面名称包含两个以上单词时，应当使用短横线 `-` 连接，比如：`user-list`。不要使用小驼峰命名。
 10. 主表页面的列配置（columns）应当放在单独的 JS/TS 文件中，因为有些地方可能需要复用这些列配置。
 11. 路由中组件应该使用懒加载导入。
 12. 业务模块的编辑表单组件应与主表组件分开存放，不得放在同一文件中。
@@ -481,13 +494,19 @@ export default defineConfig({
 
 1. 如果一个项目中没有使用 Tailwind CSS，那么应当使用 `less` 或者 `scss` 作为 CSS 预处理器。
 2. CSS 命名基于 BEM 规范。
-3. 为了进行样式隔离，组件中要导入的样式必须使用 CSS Module 进行导入。
+3. 关于样式隔离与模块化：
+
+- React/SolidJS 项目：推荐使用 CSS Modules（`*.module.(css|scss|less)`）
+- Vue 项目：一般不使用 CSS Modules，推荐使用 `<style scoped>` 或结合 `:global`/`:deep` 的局部化方案；如需跨组件复用，使用预处理器的分层组织（如 `components/xxx/index.scss` 并按需导入）。
+- 若团队已有 Tailwind CSS 规范，则按 Tailwind 的原子化实践执行，上述模块化策略可按需简化。
+
+样式细节以本章节为准，Vue 小节不再重复。
 
 ## Vue 项目规范
 
 1. 基于 Vue 3 的项目必须使用 TypeScript。
 2. 在 Vue 组件中，必须采用组合式 API（Composition API）进行逻辑组织。
-3. 组件的样式应该存放在 `index.{css,less,scss}` 中，组件的样式应该与组件名保持一致。
+3. 样式组织：优先使用 `<style scoped>`；若单独文件，放置在与组件同目录，文件名与组件名保持一致（如 `UserCard.vue` 搭配 `user-card.scss`），避免在 Vue 项目中使用 CSS Modules。
 4. 当组件定义的数据较多时，应该把所有组件数据定义在 `pageData` 这个响应式对象之下，比如：
 
    ```typescript
@@ -502,7 +521,7 @@ export default defineConfig({
    ```
 
 5. 若在 JavaScript 部分遇到需要使用 JSX 语法渲染的情况（如主表列配置），应将其单独提取到合适的位置。
-6. 主表的按钮配置应以 计算属性 形式实现。
+6. 主表的按钮配置应以 计算属性 形式实现（动机：避免在模板中做复杂计算、便于逻辑复用，并利用 `computed` 的缓存特性减少重复计算）。
 7. Vue 3 项目的状态管理库使用 `pinia`，持久化使用 `pinia-plugin-persistedstate`。
 8. 当导入的组件比较复杂或者打包时出现了 JS 体积较大的情况，应当使用 `defineAsyncComponent`，这样可以优化性能以及减少单个 JS 体积。
 9. 集成 `vite-plugin-vue-devtools`。
@@ -540,7 +559,7 @@ const props = withDefaults(defineProps<IDialogProps>(), {
 14. 合理使用 `computed` 和 `watch`，避免不必要的重新计算。
 15. 组件事件使用 `defineEmits` 定义，确保类型安全。
 16. 使用 `Teleport` 组件处理模态框、通知等需要在 DOM 树特定位置渲染的组件。
-17. 避免在模板中进行复杂计算，将逻辑提取到计算属性或方法中。
+17. 避免在模板中进行复杂计算，将逻辑提取到计算属性或方法中。因为**计算属性**具备缓存，模板更简洁、易测试，也便于多处复用。
 
 ## React 项目规范
 
@@ -616,6 +635,14 @@ const props = withDefaults(defineProps<IDialogProps>(), {
 
 ## Node.js 后端项目规范
 
+### 通用规范（后端）
+
+1. 安全：统一采用 `helmet`、CORS 策略、参数化查询与输入校验；鉴权与授权必须覆盖敏感接口；会话管理与限流（防暴力破解）必备。
+2. 日志：按等级输出（error/warn/info/debug），可选集成 `winston` 或使用框架内置 Logger，关键路径与安全事件需留痕；建议接入集中化日志（如 ELK/Cloud）。
+3. 配置：环境变量集中管理（如 `@nestjs/config`、`@fastify/env`、`dotenv`），区分环境并提供校验。
+4. 测试：单元测试（Jest/tap）、集成测试（使用测试数据库）、E2E（Playwright/Cypress 或 supertest）；推荐 AAA 模式。覆盖率基线与细节统一见“测试规范”。
+5. 性能：开启压缩、缓存（Redis/内存）、数据库索引与连接池，监控关键指标。
+
 ### NestJS 项目规范
 
 1. 必须使用 TypeScript，采用严格的类型检查配置，包括 `exactOptionalPropertyTypes`、`noUncheckedIndexedAccess` 等现代化选项。
@@ -658,10 +685,8 @@ const props = withDefaults(defineProps<IDialogProps>(), {
 10. 合理使用中间件、拦截器、守卫和过滤器。
 11. 数据库操作使用 TypeORM 或 Prisma，避免直接写 SQL。
 12. 环境变量使用 `@nestjs/config` 管理。
-13. 日志使用内置的 Logger 或集成 winston。
-14. 单元测试和集成测试使用 Jest。
-15. 使用 `helmet` 增强安全性。
-16. 适配器优先使用 `Fastify` 而不是 `Express`
+13. 日志/安全/测试请遵循“通用规范（后端）”。
+14. 适配器优先使用 `Fastify` 而不是 `Express`。
 
 ### Fastify 项目规范
 
@@ -670,16 +695,16 @@ const props = withDefaults(defineProps<IDialogProps>(), {
 3. 路由定义使用 TypeScript 接口确保类型安全：
 
    ```typescript
-   interface IUserQuery {
+   interface UserQuery {
      id: string;
    }
 
-   interface IUserReply {
+   interface UserReply {
      id: string;
      name: string;
    }
 
-   fastify.get<{ Querystring: IUserQuery; Reply: IUserReply }>(
+   fastify.get<{ Querystring: UserQuery; Reply: UserReply }>(
      "/user",
      async (request, reply) => {
        // 实现逻辑
@@ -687,13 +712,9 @@ const props = withDefaults(defineProps<IDialogProps>(), {
    );
    ```
 
-4. 使用 `@fastify/env` 管理环境变量。
-5. 使用 `@fastify/cors` 处理跨域请求。
-6. 使用 `fastify-plugin` 封装插件。
-7. 错误处理使用 Fastify 的错误处理机制。
-8. 数据验证使用 JSON Schema。
-9. 日志使用 Fastify 内置的日志系统。
-10. 测试使用 `tap` 或 `jest`。
+4. 使用 `fastify-plugin` 封装插件。
+5. 错误处理使用 Fastify 的错误处理机制；日志、安全、跨域、配置与测试请遵循“通用规范（后端）”。
+6. 数据验证使用 JSON Schema（框架内置支持）。
 
 ### Express 项目规范
 
@@ -701,12 +722,8 @@ const props = withDefaults(defineProps<IDialogProps>(), {
 2. 使用 Express Router 组织路由。
 3. 中间件应该是纯函数，避免副作用。
 4. 错误处理中间件应该放在所有路由之后。
-5. 使用 `helmet` 增强安全性。
-6. 使用 `cors` 处理跨域请求。
-7. 环境变量使用 `dotenv` 管理。
-8. 数据验证使用 `joi` 或 `express-validator`。
-9. 日志使用 `winston` 或 `morgan`。
-10. 测试使用 `jest` 和 `supertest`。
+5. 安全/日志/配置/测试实践请遵循“通用规范（后端）”。
+6. 数据验证建议使用 `joi` 或 `express-validator`（Express 常用方案）。
 
 ## 测试规范
 
@@ -742,7 +759,7 @@ const props = withDefaults(defineProps<IDialogProps>(), {
 2. 图片使用懒加载和适当的格式（WebP、AVIF）。
 3. 使用 CDN 加速静态资源。
 4. 启用 Gzip/Brotli 压缩。
-5. 使用 Service Worker 实现离线缓存。
+5. 使用 Service Worker 实现离线缓存，并制定缓存失效与更新策略（例如：版本化缓存 + manifest、stale-while-revalidate、后台同步更新与用户提示刷新）。
 6. 避免内存泄漏，及时清理事件监听器。
 7. 使用 Web Workers 处理计算密集型任务。
 8. 合理使用缓存策略。

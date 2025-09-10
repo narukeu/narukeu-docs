@@ -14,19 +14,20 @@
 
 ```typescript
 import js from "@eslint/js";
+import { defineConfig } from "eslint/config";
 import prettierRecommended from "eslint-plugin-prettier/recommended";
 import tsdoc from "eslint-plugin-tsdoc";
 import globals from "globals";
 import tseslint from "typescript-eslint";
 import type { Linter } from "eslint";
 
-export default tseslint.config(
+export default defineConfig(
   js.configs.recommended,
   tseslint.configs.recommended,
   // tseslint.configs.recommendedTypeChecked,
   prettierRecommended,
   {
-    files: ["src/**/*.{js,mjs,cjs,ts,mts,cts}"],
+    files: ["src/**/*.{js,mjs,cjs,jsx,ts,tsx,mts,cts}"],
     languageOptions: {
       ecmaVersion: 2023,
       globals: { ...globals.browser, ...globals.node },
@@ -62,6 +63,7 @@ export default tseslint.config(
 
 ```typescript
 import js from "@eslint/js";
+import { defineConfig } from "eslint/config";
 import { createTypeScriptImportResolver } from "eslint-import-resolver-typescript";
 import * as importX from "eslint-plugin-import-x";
 
@@ -72,7 +74,7 @@ import tseslint from "typescript-eslint";
 
 import type { Linter } from "eslint";
 
-export default tseslint.config(
+export default defineConfig(
   js.configs.recommended,
   tseslint.configs.recommended,
   // tseslint.configs.recommendedTypeChecked,
@@ -80,7 +82,7 @@ export default tseslint.config(
   importX.flatConfigs.recommended,
   importX.flatConfigs.typescript,
   {
-    files: ["src/**/*.{js,mjs,cjs,ts,mts,cts}"],
+    files: ["src/**/*.{js,mjs,cjs,jsx,ts,tsx,mts,cts}"],
     languageOptions: {
       ecmaVersion: 2023,
       globals: { ...globals.browser, ...globals.node },
@@ -130,17 +132,15 @@ export default tseslint.config(
       ]
     },
     settings: {
-      "import/resolver-next": [
+      "import-x/resolver-next": [
         createTypeScriptImportResolver({
           // bun: true,
           alwaysTryTypes: true,
           extensions: [
             ".js",
-            ".cjs",
             ".mjs",
             ".jsx",
             ".ts",
-            ".cjs",
             ".cts",
             ".mts",
             ".tsx",
@@ -157,6 +157,7 @@ export default tseslint.config(
 
 ```typescript
 import js from "@eslint/js";
+import { defineConfig } from "eslint/config";
 import { Linter } from "eslint";
 import { createTypeScriptImportResolver } from "eslint-import-resolver-typescript";
 import importX from "eslint-plugin-import-x";
@@ -168,7 +169,7 @@ import tsdoc from "eslint-plugin-tsdoc";
 import globals from "globals";
 import tseslint from "typescript-eslint";
 
-export default tseslint.config(
+export default defineConfig(
   js.configs.recommended,
   tseslint.configs.recommended,
   // tseslint.configs.recommendedTypeChecked,
@@ -176,7 +177,7 @@ export default tseslint.config(
   importX.flatConfigs.recommended,
   importX.flatConfigs.typescript,
   {
-    files: ["src/**/*.{js,mjs,cjs,ts,mts,cts}"],
+    files: ["src/**/*.{js,mjs,cjs,jsx,ts,tsx,mts,cts}"],
     languageOptions: {
       ecmaVersion: 2023,
       globals: { ...globals.browser },
@@ -228,17 +229,15 @@ export default tseslint.config(
       ]
     },
     settings: {
-      "import/resolver-next": [
+      "import-x/resolver-next": [
         createTypeScriptImportResolver({
           // bun: true,
           alwaysTryTypes: true,
           extensions: [
             ".js",
-            ".cjs",
             ".mjs",
             ".jsx",
             ".ts",
-            ".cjs",
             ".cts",
             ".mts",
             ".tsx",
