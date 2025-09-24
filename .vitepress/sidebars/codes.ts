@@ -9,6 +9,10 @@ export const codesSidebar: DefaultTheme.SidebarItem[] = [
       {
         text: "Eslint 配置",
         link: "/codes/eslint-flat-config"
+      },
+      {
+        text: "BiomeJS 配置",
+        link: "/codes/biomejs-config"
       }
     ]
   },

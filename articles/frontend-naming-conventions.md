@@ -1,19 +1,15 @@
 # Node.js 项目开发规范
 
-本规范所指的 “Node.js 项目”，指基于 `Vue`、`React`、`SolidJS`、微信小程序的 Web 前端项目，基于 `NestJS`、`Fastify`、`Express` 的 Web 后端项目，以及其他使用了 `Node.js` 并且支持 `ESLint`、`Prettier` 进行格式化的项目。
+本规范所指的 “Node.js 项目”，指基于 `Vue`、`React`、`SolidJS`、微信小程序的 Web 前端项目，基于 `NestJS`、`Fastify`、`Express` 的 Web 后端项目，以及其他使用了 `Node.js` 并且支持 `ESLint + Prettier` 或者 `BiomeJS` 进行格式化的项目。
 
 > [!TIP]
 >
 > 由于我绝大部分项目基于 `Node.js` 运行时，本规范将重点围绕 `Node.js` 展开。若有实验性项目采用 Deno、Bun 等其他运行时，可酌情参考本规范。未来，当其他运行时的项目占比提升时，我会考虑对本规范进行修订以适配。
 
-> [!TIP]
->
-> 经过评估我认为 [BiomeJS](https://biomejs.dev/)、[OXC Linter](https://oxc.rs/docs/guide/usage/linter.html) 等新兴代码格式化工具目前还不够成熟，暂不纳入本规范的考虑范围。
-
 ## 总体要求
 
 1. 使用 `pnpm` 进行包管理。
-2. 目前所有项目均已经安装了 ESLint 和 Prettier，编辑器也要进行如此配置；通用代码风格请见“代码风格规范”一章。
+2. 目前所有项目均已经安装了 `ESLint + Prettier` 或 `BiomeJS`，编辑器也要进行如此配置；通用代码风格请见“代码风格规范”一章。
 3. 变量、类型、组件、方法不得用汉语拼音，特别是拼音缩写。
 4. ESLint 配置文件必须为 flatConfig 格式，并集成 `prettier`、`import-x`、`tsdoc` 与 `typescript-eslint`。为避免重复，请直接参考示例文件：[codes/eslint-flat-config.md](https://narukeu.github.io/codes/eslint-flat-config.html)（含基础版、带 `import-x`、React 版）。
    - 使用 `import-x.flatConfigs.recommended` 与 `import-x.flatConfigs.typescript`；
@@ -21,9 +17,10 @@
    - TypeScript 场景优先启用 `projectService: true`；必要时再配置 `parserOptions.project`，同时设置 `tsconfigRootDir`；如需默认项目，可启用 `projectService.allowDefaultProject`；
    - 在 flat config 下使用 `settings["import-x/resolver-next"] = [createTypeScriptImportResolver(...)]` 启用 TS 路径与类型分辨；
    - 需要 Node 与浏览器全局时可合并 `globals.browser` 与 `globals.node`。
-5. 原则上不得使用已经停止维护或长期没有更新的库（如果一个活跃开发的第三方库依赖某个已经停止维护的库，则视情况而定）。
-6. 原则上应使用 `es-toolkit` 等工具库代替 `lodash` 作为 `JS` 工具库。但如果开发的项目需要运行在旧的操作系统或旧的 `Node.js` 环境中，则不适用此规定。
-7. 语法规范为 `ES2022+`，采用现代化的 TypeScript 配置，包括严格类型检查、ES 模块优先、现代构建工具兼容等设计原则。但如果开发的项目需要运行在旧的操作系统或旧的 `Node.js` 环境中，则不适用此规定。
+5. 从 2025.09.24 起，对于新建的项目推荐使用 `BiomeJS` 作为代码检查与格式化工具。[点击查看配置文件](https://narukeu.github.io/codes/biomejs-config.html)。
+6. 原则上不得使用已经停止维护或长期没有更新的库（如果一个活跃开发的第三方库依赖某个已经停止维护的库，则视情况而定）。
+7. 原则上应使用 `es-toolkit` 等工具库代替 `lodash` 作为 `JS` 工具库。但如果开发的项目需要运行在旧的操作系统或旧的 `Node.js` 环境中，则不适用此规定。
+8. 语法规范为 `ES2022+`，采用现代化的 TypeScript 配置，包括严格类型检查、ES 模块优先、现代构建工具兼容等设计原则。但如果开发的项目需要运行在旧的操作系统或旧的 `Node.js` 环境中，则不适用此规定。
 
 ## TypeScript 配置规范
 
