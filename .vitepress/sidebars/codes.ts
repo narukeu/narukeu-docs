@@ -7,12 +7,12 @@ export const codesSidebar: DefaultTheme.SidebarItem[] = [
     items: [
       { text: "前端通用 .gitignore", link: "/codes/frontend-gitignore" },
       {
-        text: "Eslint 配置",
-        link: "/codes/eslint-flat-config"
-      },
-      {
         text: "BiomeJS 配置",
         link: "/codes/biomejs-config"
+      },
+      {
+        text: "Eslint 配置",
+        link: "/codes/eslint-flat-config"
       }
     ]
   },
