@@ -1,6 +1,6 @@
 # Node.js 项目开发规范
 
-本规范所指的 “Node.js 项目”，指基于 `Vue`、`React`、`SolidJS`、微信小程序的 Web 前端项目，基于 `NestJS`、`Fastify`、`Express` 的 Web 后端项目，以及其他使用了 `Node.js` 并且支持 `ESLint + Prettier` 或者 `BiomeJS` 进行格式化的项目。
+本规范所指的 “Node.js 项目”，指基于 `Vue`、`React`、`SolidJS`、微信小程序的 Web 前端项目，基于 `NestJS`、`Fastify`、`Express` 的 Web 后端项目，以及其他使用了 `Node.js` 并且支持 `BiomeJS` 或 `ESLint + Prettier` 进行格式化与校验的项目。
 
 > [!TIP]
 >
@@ -8,19 +8,27 @@
 
 ## 总体要求
 
-1. 使用 `pnpm` 进行包管理。
-2. 目前所有项目均已经安装了 `ESLint + Prettier` 或 `BiomeJS`，编辑器也要进行如此配置；通用代码风格请见“代码风格规范”一章。
-3. 变量、类型、组件、方法不得用汉语拼音，特别是拼音缩写。
-4. ESLint 配置文件必须为 flatConfig 格式，并集成 `prettier`、`import-x`、`tsdoc` 与 `typescript-eslint`。为避免重复，请直接参考示例文件：[codes/eslint-flat-config.md](https://narukeu.github.io/codes/eslint-flat-config.html)（含基础版、带 `import-x`、React 版）。
-   - 使用 `import-x.flatConfigs.recommended` 与 `import-x.flatConfigs.typescript`；
-   - files 覆盖 `**/*.{js,mjs,cjs,jsx,ts,tsx,mts,cts}`；
-   - TypeScript 场景优先启用 `projectService: true`；必要时再配置 `parserOptions.project`，同时设置 `tsconfigRootDir`；如需默认项目，可启用 `projectService.allowDefaultProject`；
-   - 在 flat config 下使用 `settings["import-x/resolver-next"] = [createTypeScriptImportResolver(...)]` 启用 TS 路径与类型分辨；
-   - 需要 Node 与浏览器全局时可合并 `globals.browser` 与 `globals.node`。
-5. 从 2025.09.24 起，对于新建的项目推荐使用 `BiomeJS` 作为代码检查与格式化工具。[点击查看配置文件](https://narukeu.github.io/codes/biomejs-config.html)。
-6. 原则上不得使用已经停止维护或长期没有更新的库（如果一个活跃开发的第三方库依赖某个已经停止维护的库，则视情况而定）。
-7. 原则上应使用 `es-toolkit` 等工具库代替 `lodash` 作为 `JS` 工具库。但如果开发的项目需要运行在旧的操作系统或旧的 `Node.js` 环境中，则不适用此规定。
-8. 语法规范为 `ES2022+`，采用现代化的 TypeScript 配置，包括严格类型检查、ES 模块优先、现代构建工具兼容等设计原则。但如果开发的项目需要运行在旧的操作系统或旧的 `Node.js` 环境中，则不适用此规定。
+1. 包管理器统一使用 `pnpm`。
+2. 代码质量与格式化工具：
+   - 自 2025-09-24 起，新建项目默认使用 `BiomeJS` 统一完成“格式化 + Lint + 导入整理”。统一以 `biome.json` 管理规则，并在 CI 执行 `biome ci`。
+   - 存量仍在过渡期的项目可沿用 `ESLint + Prettier`；详细过渡约定见“ESLint 迁移/兼容（过渡期）”小节。
+3. 编辑器建议与要求：
+   - VS Code 建议安装官方 Biome 扩展并设为默认格式化器（下文有详细约定）。
+   - 项目应提供 `.editorconfig` 与 `.vscode/settings.json` 以统一开发体验。
+4. 命名约束：变量、类型、组件、方法不得使用汉语拼音（尤其是拼音缩写）。
+5. 依赖选择：原则上不得使用已经停止维护或长期未更新的库（如果一个活跃第三方库依赖某个已停止维护的库，则视情况评估）。
+6. JS 工具库：原则上应使用 `es-toolkit` 等工具库代替 `lodash`。若需兼容旧操作系统或旧 `Node.js` 环境，此规定可酌情放宽。
+7. 语法与构建：采纳 `ES2022+` 语法与现代 TypeScript 配置（严格类型检查、ESM 优先、兼容现代构建工具）。如需兼容旧环境可按需降级。
+8. ESLint 迁移/兼容（过渡期）：
+   - 仅适用于沿用 ESLint 的项目：ESLint 配置必须为 flatConfig，并集成 `prettier`、`import-x`、`tsdoc` 与 `typescript-eslint`。为避免重复，请参考示例文件：[codes/eslint-flat-config.md](https://narukeu.github.io/codes/eslint-flat-config.html)（含基础版、带 `import-x`、React 版）。
+     - 使用 `import-x.flatConfigs.recommended` 与 `import-x.flatConfigs.typescript`；
+     - files 覆盖 `**/*.{js,mjs,cjs,jsx,ts,tsx,mts,cts}`；
+     - TypeScript 场景优先启用 `projectService: true`；必要时再配置 `parserOptions.project`，同时设置 `tsconfigRootDir`；如需默认项目，可启用 `projectService.allowDefaultProject`；
+     - 在 flat config 下使用 `settings["import-x/resolver-next"] = [createTypeScriptImportResolver(...)]` 启用 TS 路径与类型分辨；
+     - 需要 Node 与浏览器全局时可合并 `globals.browser` 与 `globals.node`。
+
+- Biome 配置示例与约定见：[codes/biomejs-config.md](https://narukeu.github.io/codes/biomejs-config.html)（含 React 规则集版本）。
+- 采用 Biome 时，无需安装 `eslint`、`@typescript-eslint/*`、`prettier` 及相关插件；统一以 `biome.json` 管理规则。
 
 ## TypeScript 配置规范
 
@@ -37,8 +45,6 @@
 - **模块检测**：使用 `"moduleDetection": "auto"`，智能处理 ESM/CommonJS 混合环境
 
 #### 2. 严格类型检查（强制启用）
-
-以下配置项在所有项目中都应该启用，以确保最高的类型安全：
 
 ```json
 {
@@ -97,7 +103,7 @@
 }
 ```
 
-**配置说明**：
+说明：
 
 - `noErrorTruncation`: 显示完整的类型错误信息，便于调试和问题定位
 - `resolvePackageJsonExports/Imports`: 支持现代包管理器和构建工具的标准
@@ -128,8 +134,8 @@
 
 启用条件（何时开启 composite/projects 引用）：
 
-- 需要跨包类型检查、增量编译或独立构建产物时启用
-- 单包项目或无需项目引用的简单项目可不启用
+- 需要跨包类型检查、增量编译或独立构建产物时启用。
+- 单包项目或无需项目引用的简单项目可不启用。
 
 基础配置（建议放在仓库共享配置，如 `shared/tsconfig.base.json`）：
 
@@ -158,70 +164,73 @@
   - 改用对象常量配合 `as const`、普通 `enum`，或字面量联合类型。
 - 选择 `const enum` 前请确认构建链路（含测试与文档构建）均能正确处理；否则按上面替代方案落地。
 
-## 代码风格规范
+## 代码格式化与风格
 
-### 1. 代码格式化（以 Prettier 为准）
+### 1. 使用 Biome（默认）
 
 - 缩进：2 个空格。
 - 最大行宽：80 字符，必要时进行适当换行。
 - 分号：语句末尾必须加分号。
 - 引号：统一使用双引号。
-- 结尾逗号：尽可能添加（trailingComma: "all"）。
-- 箭头函数参数：一律保留括号（arrowParens: "always"）。
-- 花括号空格：启用（bracketSpacing: true）。
-- JSX/HTML 的尖括号换行：不与前一行同列（bracketSameLine: false）。
+- 结尾逗号：尽可能添加（等价于 trailingComma: "all"）。
+- 箭头函数参数：一律保留括号（等价于 arrowParens: "always"）。
+- 花括号空格：启用（等价于 bracketSpacing: true）。
+- JSX/HTML 的尖括号换行：不与前一行同列（等价于 bracketSameLine: false）。
 - 换行符：LF；Git 也应配置为提交时强制 LF。
+- 导入整理：启用 Biome 的 organizeImports（`assist.actions.source.organizeImports = "on"`）。
 
-一个基本的 Prettier 配置如下：
+示例 `biome.json` 片段：
 
 ```json
 {
-  "$schema": "https://json.schemastore.org/prettierrc",
-  "semi": true,
-  "tabWidth": 2,
-  "singleQuote": false,
-  "printWidth": 80,
-  "trailingComma": "all",
-  "arrowParens": "always",
-  "bracketSpacing": true,
-  "bracketSameLine": false,
-  "endOfLine": "lf"
+  "formatter": {
+    "indentWidth": 2,
+    "lineWidth": 80,
+    "quoteStyle": "double",
+    "trailingComma": "all",
+    "arrowParentheses": "always"
+  },
+  "organizeImports": { "enabled": true },
+  "linter": { "enabled": true, "rules": { "recommended": true } }
 }
 ```
 
-注：本文档中所有格式化相关要求以以上 Prettier 配置为唯一准绳；如有不一致，以此配置为准。
+### 2. 存量项目（ESLint + Prettier，过渡期）
 
-### 2. 语法与写法偏好
+- 格式化以 Prettier 为准，风格参数与上文 Biome 设置保持一致（缩进 2、行宽 80、双引号、trailingComma: "all" 等）。
+- 导入顺序与分组遵循 `import-x/order` 统一配置（见“总体要求”中的 ESLint 过渡约定）。
+- 过渡期内的项目应规划迁移至 Biome，并在 CI 中保持与 Biome 一致的风格与校验策略。
 
-- 变量声明：尽量使用 `const` 或 `let`，避免使用 `var`；能 `const` 则不 `let`（符合 ESLint `prefer-const`）。
-- 函数形式：明确以箭头函数为优先，除非确有使用 `function` 关键字的必要（可在 ESLint 中配置 `func-style`）。
-- `any`：谨慎使用。必须使用时应添加注释说明原因（符合 `@typescript-eslint/no-explicit-any` 与 `@typescript-eslint/no-unsafe-assignment`）。
+### 3. 语法与写法偏好
+
+- 变量声明：尽量使用 `const` 或 `let`，避免使用 `var`；能 `const` 则不 `let`（符合 `prefer-const`）。
+- 函数形式：明确以箭头函数为优先，除非确有使用 `function` 关键字的必要（可在 Lint 中配置 `func-style`）。
+- `any`：谨慎使用。必须使用时应添加注释说明原因（配合 `@typescript-eslint/no-explicit-any` 与 `@typescript-eslint/no-unsafe-assignment`）。
 - 目录与仓库级换行符：统一为 LF，并确保 Git 与编辑器一致。
 - 禁止使用 `@ts-ignore`。若在测试等场景确有必要，必须紧随其后添加说明性注释，解释原因与影响范围。
 
-### 3. 导入与模块组织风格
+### 4. 导入与模块组织风格
 
-- 导入顺序与分组遵循 ESLint `import-x/order` 统一配置（见“总体要求”中 ESLint 示例）。推荐按内建模块、第三方依赖、工作区/别名、本地父级、本地同级、类型导入、样式/副作用等分组，并在组间使用空行分隔。
-- 导出风格应与模块职责一致：默认导出用于表达文件的主功能；具名导出用于表达多功能并行的工具集合（命名与取舍详见“代码命名规范”中的相关条款）。
-
----
+- 若使用 Biome：由 Biome 自动整理导入；分组策略保持“内建/第三方/工作区别名/本地父级/本地同级/类型/样式与副作用”的语义顺序。
+- 若沿用 ESLint：导入顺序与分组遵循 `import-x/order` 统一配置（见“总体要求”中 ESLint 示例）。
+- 导出风格应与模块职责一致：默认导出用于表达文件的主功能；具名导出用于表达多功能并行的工具集合（命名与取舍详见“代码命名规范”）。
 
 ## 代码命名规范
 
-- 常量: 使用 UPPER_SNAKE_CASE（如 `DEFAULT_PORT`, `MAX_THREADS`, `BUILD_TIMEOUT`），全局常量建议加模块前缀（如 `BUILD_DEFAULT_PORT`）。
-- 私有方法: 使用 `_` 前缀（如 `_processModule`, `_handleError`, `_validateConfig`）。
-- 类名: 使用 PascalCase（如 `Compiler`, `DevServer`, `AssetLoader`）。
-  - 如果类为基础类或公共基类，建议名称中包含 `Base` 或 `Abstract` 字样（如 `BaseController`, `AbstractService`），便于识别继承体系。
-- 函数/变量: 使用 camelCase（如 `buildProject`, `configPath`, `moduleInfo`）。
-  - 不限制名称长度，推荐根据实际用途使用有意义且描述性强的长名称，如 `getUserProfileByIdAsync`、`defaultUserAvatarUrl`，好的名字比注释更直观。
-- 未使用的参数和变量: 使用 `_` 前缀，防止产生歧义和 ESLint 警告（如 `array.map((_item, index) => index * 2)`）。当只用第二或后续参数时，前面未用参数也应加 `_` 前缀。这符合 ESLint `@typescript-eslint/no-unused-vars` 规则的 `argsIgnorePattern` 和 `varsIgnorePattern` 配置。
-- 文件名: 使用 kebab-case（如 `build-config.ts`, `dev-server.ts`, `asset-loader.ts`），避免与保留字、已有 npm 包重名。
-- 目录名: 使用 kebab-case（如 `build-tools/`, `config-parser/`, `utils/`），避免单字符目录名。
+- 常量：使用 UPPER_SNAKE_CASE（如 `DEFAULT_PORT`, `MAX_THREADS`, `BUILD_TIMEOUT`），全局常量建议加模块前缀（如 `BUILD_DEFAULT_PORT`）。
+- 私有成员：使用 TypeScript `private` 或 ECMAScript `#` 私有字段表示私有性，不再使用下划线前缀（如 `#internalState`, `private cache`）。
+- 类名：使用 PascalCase（如 `Compiler`, `DevServer`, `AssetLoader`）。
+  - 如果类为基础类或公共基类，建议名称中包含 `Base` 或 `Abstract` 字样（如 `BaseController`, `AbstractService`）。
+- 函数/变量：使用 camelCase（如 `buildProject`, `configPath`, `moduleInfo`）。
+  - 不限制名称长度，推荐根据实际用途使用有意义且描述性强的长名称，如 `getUserProfileByIdAsync`、`defaultUserAvatarUrl`。
+- 未使用的参数和变量：使用 `_` 前缀，防止产生歧义和 Lint 警告（如 `array.map((_item, index) => index * 2)`）。当只用第二或后续参数时，前面未用参数也应加 `_` 前缀。这符合 `@typescript-eslint/no-unused-vars` 的 `argsIgnorePattern` 与 `varsIgnorePattern`。
+- 文件名：使用 kebab-case（如 `build-config.ts`, `dev-server.ts`, `asset-loader.ts`），避免与保留字、已有 npm 包重名。
+- 目录名：使用 kebab-case（如 `build-tools/`, `config-parser/`, `utils/`），避免单字符目录名。
 - 测试文件命名规则请参见“测试规范”章节，此处不再赘述。
 - 缩写：类型/类名中的缩写统一大写（如 `APIClient`, `HTMLParser`）；变量/函数中的缩写遵循 camelCase（如 `apiClient`）；避免无意义缩写。
-- 异步函数建议以 Async 结尾或用动词前缀（如 `fetchDataAsync`, `getUserInfo`）。
-- React 组件名用 PascalCase，hooks 用 use 前缀（如 `useUserInfo`）。
-- 类型守卫函数统一用 isXxx 命名（如 `isString`）。
+- 异步函数建议以 `Async` 结尾或用动词前缀（如 `fetchDataAsync`, `getUserInfo`）。
+- React 组件名用 PascalCase，hooks 用 `use` 前缀（如 `useUserInfo`）。
+- 类型守卫函数统一用 `isXxx` 命名（如 `isString`）。
 
 ### 布尔值命名规范
 
@@ -230,43 +239,43 @@
 
 ### 事件和回调命名
 
-- 事件处理函数: 使用 `handle` 或 `on` 前缀（如 `handleClick`, `onFileChange`），事件名用 PascalCase（如 `onUserLogin`）。
-- 回调函数: 使用描述性动词（如 `onComplete`, `onError`, `beforeBuild`），回调参数用 `event` 结尾（如 `onChangeEvent`）。
+- 事件处理函数：使用 `handle` 或 `on` 前缀（camelCase，如 `handleClick`, `onUserLogin`）。
+- 回调函数：使用描述性动词（如 `onComplete`, `onError`, `beforeBuild`），回调参数用 `event` 结尾（如 `onChangeEvent`）。
 
 ### 模块导出命名
 
-- 默认导出: 使用文件主要功能的名称
-- 命名导出: 使用具体的功能名称
-- 模块导入顺序与分组规范请见“代码风格规范 > 导入与模块组织风格”。
+- 默认导出：使用文件主要功能的名称。
+- 命名导出：使用具体的功能名称。
+- 模块导入顺序与分组规范请见“代码格式化与风格 > 导入与模块组织风格”。
 
 ## TypeScript 类型命名
 
 ### 基础类型命名
 
-- Interface: 使用 PascalCase（如 `UserConfig`, `APIResponse`, `DatabaseConnection`）
+- Interface：使用 PascalCase（如 `UserConfig`, `APIResponse`, `DatabaseConnection`）
   - 如果接口为公共或基础接口，建议在名称中包含 `Base` 或 `Public` 字样（如 `BaseOptions`, `PublicFormDataType`）
-- Type: 使用 PascalCase（如 `BuildMode`, `AssetInfo`, `LoaderResult`）
+- Type：使用 PascalCase（如 `BuildMode`, `AssetInfo`, `LoaderResult`）
 - Enum：使用 PascalCase（如 `UserStatus`, `APIEndpoint`, `ErrorCode`）
 - Enum 成员：使用 UPPER_SNAKE_CASE（如 `ACTIVE`, `INACTIVE`, `PENDING`）
 - Enum：在工具链支持（由 tsc 产出或明确支持 `const enum` 内联）的项目中优先使用 `const enum` 以减少产物体积；否则改用对象常量配合 `as const`、普通 `enum`，或字面量联合类型（详见 TS 配置章节“const enum 与 isolatedModules 注意事项”）。
 
 ### 泛型命名
 
-- 简单泛型：使用单个大写字母，从 T 开始（如 `T`, `U`, `K`, `V`）
-- 复杂泛型：使用 PascalCase 组合词（如 `TResultData`, `TRequestOptions`）
-- 集合类泛型：可使用复数形式（如 `TItems`, `TEntities`）
-- 约束泛型：使用有意义的名称表达约束关系（如 `TEntity extends BaseEntity`）
+- 简单泛型：使用单个大写字母，从 T 开始（如 `T`, `U`, `K`, `V`）。
+- 复杂泛型：使用 PascalCase 组合词（如 `TResultData`, `TRequestOptions`）。
+- 集合类泛型：可使用复数形式（如 `TItems`, `TEntities`）。
+- 约束泛型：使用有意义的名称表达约束关系（如 `TEntity extends BaseEntity`）。
 
 ### 函数类型
 
-- 函数类型表达式：使用描述性 PascalCase（如 `EventHandler`, `DataValidator`, `AsyncProcessor`）
-- 回调函数类型：以用途命名（如 `OnChangeCallback`, `ErrorHandler`）
+- 函数类型表达式：使用描述性 PascalCase（如 `EventHandler`, `DataValidator`, `AsyncProcessor`）。
+- 回调函数类型：以用途命名（如 `OnChangeCallback`, `ErrorHandler`）。
 
 ### 高级类型
 
-- 映射类型：使用 PascalCase，体现转换关系（如 `Partial<T>`, `ReadonlyKeys<T>`）
-- 条件类型：使用 PascalCase，体现条件逻辑（如 `ApiResult<T>`, `NonNullable<T>`）
-- 工具类型：使用 PascalCase（如 `DeepPartial<T>`, `KeysOfType<T, U>`）
+- 映射类型：使用 PascalCase，体现转换关系（如 `Partial<T>`, `ReadonlyKeys<T>`）。
+- 条件类型：使用 PascalCase，体现条件逻辑（如 `ApiResult<T>`, `NonNullable<T>`）。
+- 工具类型：使用 PascalCase（如 `DeepPartial<T>`, `KeysOfType<T, U>`）。
 
 ### 模块和命名空间
 
@@ -275,9 +284,9 @@
 
 ### 类型组合原则
 
-- Interface 主要用于对象结构描述，支持声明合并和继承
-- Type 适合联合类型、交叉类型、条件类型等复杂场景
-- 优先使用 Interface 定义对象结构，Type 定义计算类型
+- Interface 主要用于对象结构描述，支持声明合并和继承。
+- Type 适合联合类型、交叉类型、条件类型等复杂场景。
+- 优先使用 Interface 定义对象结构，Type 定义计算类型。
 - 开启 `noUncheckedIndexedAccess` 后，索引访问结果自动变为 `T | undefined`，不需要也不应在索引签名里额外写 `undefined`；请通过显式判空、默认值或非空断言处理。
 
 ### 其他
@@ -287,11 +296,10 @@
 ## 注释规范
 
 - 注释应清晰、有效，重点解释“为什么”（The Why），而非“做了什么”（The What）。代码应尽量自解释其功能，注释补充设计意图、背景与原因。（参见 [Vite 的 Copilot 提示词](https://github.com/vitejs/vite/blob/main/.github/copot-instructions.md)）
-
 - 代码注释建议用 TSDoc 风格，除非这个模块不用 TS 而用 JS。TSDoc 注释应符合 `tsdoc/syntax` 规则，包括：
-  - 使用 `/**` 开始多行注释
-  - 使用标准的 TSDoc 标签如 `@param`、`@returns`、`@example` 等
-  - 避免无效的标签组合和语法错误
+  - 使用 `/**` 开始多行注释；
+  - 使用标准的 TSDoc 标签如 `@param`、`@returns`、`@example` 等；
+  - 避免无效的标签组合和语法错误。
 
 ## 前端项目通用规范
 
@@ -358,7 +366,7 @@ export default defineConfig({
    - 使用 Tailwind v3 及更早版本时：可以与预处理器配合，但不推荐；优先通过 PostCSS 工作流集成。
 2. CSS 命名基于 BEM 规范。
 3. 关于样式隔离与模块化：
-   - React/SolidJS 项目：推荐使用 CSS Modules（`*.module.(css|scss|less)`）
+   - React/SolidJS 项目：推荐使用 CSS Modules（`*.module.(css|scss|less)`）。
    - Vue 项目：一般不使用 CSS Modules，推荐使用 `<style scoped>` 或结合 `:global`/`:deep` 的局部化方案；如需跨组件复用，使用预处理器的分层组织（如 `components/xxx/index.scss` 并按需导入）。
 
 样式细节以本章节为准，Vue 小节不再重复。
@@ -382,7 +390,7 @@ export default defineConfig({
    ```
 
 5. 若在 JavaScript 部分遇到需要使用 JSX 语法渲染的情况（如主表列配置），应将其单独提取到合适的位置。
-6. 主表的按钮配置应以**计算属性**形式实现（动机：避免在模板中做复杂计算、便于逻辑复用，并利用 `computed` 的缓存特性减少重复计算）。
+6. 主表的按钮配置应以“计算属性”形式实现（动机：避免在模板中做复杂计算、便于逻辑复用，并利用 `computed` 的缓存特性减少重复计算）。
 7. Vue 3 项目的状态管理库使用 `pinia`，持久化使用 `pinia-plugin-persistedstate`。
 8. 当导入的组件比较复杂或者打包时出现了 JS 体积较大的情况，应当使用 `defineAsyncComponent`，这样可以优化性能以及减少单个 JS 体积。
 9. 集成 `vite-plugin-vue-devtools`。
@@ -420,7 +428,7 @@ const props = withDefaults(defineProps<DialogProps>(), {
 14. 合理使用 `computed` 和 `watch`，避免不必要的重新计算。
 15. 组件事件使用 `defineEmits` 定义，确保类型安全。
 16. 使用 `Teleport` 组件处理模态框、通知等需要在 DOM 树特定位置渲染的组件。
-17. 避免在模板中进行复杂计算，将逻辑提取到计算属性或方法中。因为**计算属性**具备缓存，模板更简洁、易测试，也便于多处复用。
+17. 避免在模板中进行复杂计算，将逻辑提取到计算属性或方法中。因为“计算属性”具备缓存，模板更简洁、易测试，也便于多处复用。
 
 ## React 项目规范
 
@@ -444,11 +452,11 @@ const props = withDefaults(defineProps<DialogProps>(), {
    ```
 
 5. 较为复杂的状态，应当使用 `useReducer` 进行管理。
-6. 使用 React.memo 包装纯组件以优化性能。
-7. 合理使用 useMemo 和 useCallback 避免不必要的重新渲染。
-8. 使用 React.lazy 和 Suspense 实现组件懒加载。
-9. 错误边界（Error Boundaries）用于捕获和处理组件错误。
-10. 使用 useEffect 的依赖数组时，确保包含所有依赖项。
+6. 使用 `React.memo` 包装纯组件以优化性能。
+7. 合理使用 `useMemo` 和 `useCallback` 避免不必要的重新渲染。
+8. 使用 `React.lazy` 和 `Suspense` 实现组件懒加载。
+9. 错误边界（Error Boundaries）用于捕获和处理组件错误（可使用类组件 ErrorBoundary 或社区库进行封装）。
+10. 使用 `useEffect` 的依赖数组时，确保包含所有依赖项。
 11. 自定义 Hook 应以 `use` 开头，复用组件逻辑。
 12. 使用 Context API 共享全局状态，避免 prop drilling。
 13. 对于表单处理，推荐使用 `react-hook-form`。
@@ -465,7 +473,7 @@ const props = withDefaults(defineProps<DialogProps>(), {
 7. 使用 `Show`、`For`、`Switch` 等控制流组件替代条件渲染。
 8. 状态管理使用 SolidJS Store 或第三方库如 `solid-zustand`。
 9. 路由使用 `@solidjs/router`。
-10. 样式使用 CSS Modules 或 solid-styled-components。
+10. 样式使用 CSS Modules 或 `solid-styled-components`。
 11. 使用 `createResource` 处理异步数据获取。
 12. 合理使用 `batch` 批量更新状态。
 13. 使用 `onMount` 和 `onCleanup` 处理组件生命周期。
@@ -478,7 +486,7 @@ const props = withDefaults(defineProps<DialogProps>(), {
 4. 为了方便维护起见，小程序源码目录和项目根目录应当为同一层级（也为了方便 npm）。
 5. 小程序体积有限，不应该引入过多的库，当项目功能过多的时候应该使用分包。
 6. 使用 `wx.cloud` 云开发时，应合理规划数据库结构。
-7. 使用小程序原生组件时，注意性能优化，避免频繁的 setData。
+7. 使用小程序原生组件时，注意性能优化，避免频繁的 `setData`。
 8. 图片资源应该压缩，使用 webp 格式。
 9. 合理使用小程序的生命周期钩子。
 10. 非必要不使用 `Taro`、`uni-app` 等跨端框架，在微信小程序基础上再套一层框架会增加复杂度和不确定性。
@@ -513,9 +521,9 @@ const props = withDefaults(defineProps<DialogProps>(), {
 ### NestJS 项目规范
 
 1. 必须使用 TypeScript，采用严格的类型检查配置，包括 `exactOptionalPropertyTypes`、`noUncheckedIndexedAccess` 等现代化选项。
-2. 以 `前端便利性` 为导向设计接口，减少前端调用次数，提升用户体验。接口应尽可能返回丰富且关联的数据。
+2. 以“前端便利性”为导向设计接口，减少前端调用次数，提升用户体验。接口应尽可能返回丰富且关联的数据。
 3. 尽量使用 `@nestjs/common` 中的 `HttpException` 抛出异常。
-4. 增加新的路由的时候，应该配置好 `Swagger`，比如：
+4. 增加新的路由的时候，应该配置好 `Swagger`，例如：
 
    ```typescript
    import {
@@ -546,7 +554,7 @@ const props = withDefaults(defineProps<DialogProps>(), {
 
 5. 后端应该对前端传来的数据进行第二次的校验，校验不通过的时候应当抛出异常。
 6. `findAll` 接口不得做分页，如果需要做一个分页查询的接口，请定义名为 `findList` 的接口。
-7. 文件下载接口应该做鉴权和流式传输功能，并且要分片下载。如果项目采用了云服务商的对象存储，为了提升用户体验，可以采用获取临时密钥的方式，让用户直接访问云服务商的对象存储。
+7. 文件下载接口必须做鉴权并采用流式传输，且应支持 Range 请求（`Accept-Ranges: bytes`）以便断点续传；当文件大于团队约定阈值（例如 N MB）或通过对象存储分发时，再启用分片/分段与签名直链等增强能力。若项目采用云服务商对象存储，建议通过临时凭证/预签名 URL 让用户直连下载。
 8. 使用 `class-validator` 和 `class-transformer` 进行数据验证和转换。
 9. 使用依赖注入（DI）管理服务和模块间的依赖关系。
 10. 合理使用中间件、拦截器、守卫和过滤器。
@@ -574,7 +582,7 @@ const props = withDefaults(defineProps<DialogProps>(), {
    fastify.get<{ Querystring: UserQuery; Reply: UserReply }>(
      "/user",
      async (request, reply) => {
-       // 实现逻辑
+       // ...
      }
    );
    ```
