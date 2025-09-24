@@ -202,7 +202,9 @@
 - 函数/变量：使用 camelCase（如 `buildProject`, `configPath`, `moduleInfo`）。
   - 不限制名称长度，推荐根据实际用途使用有意义且描述性强的长名称，如 `getUserProfileByIdAsync`、`defaultUserAvatarUrl`。
 - 未使用的参数和变量：使用 `_` 前缀，防止产生歧义和 Lint 警告（如 `array.map((_item, index) => index * 2)`）。当只用第二或后续参数时，前面未用参数也应加 `_` 前缀。这符合 `@typescript-eslint/no-unused-vars` 的 `argsIgnorePattern` 与 `varsIgnorePattern`。
-- 文件名：使用 kebab-case（如 `build-config.ts`, `dev-server.ts`, `asset-loader.ts`），避免与保留字、已有 npm 包重名。
+- 文件名：
+  - 前端项目：统一使用 kebab-case（如 `build-config.ts`、`dev-server.ts`、`asset-loader.ts`），避免使用保留字，且不得与现有 npm 包同名。
+  - 后端（比如 NestJS）：遵循框架官方命名规范，采用点分式“资源名.角色.ts”，不使用连字符 kebab-case；示例：`user.entity.ts`、`user.service.ts`、`user.controller.ts`。
 - 目录名：使用 kebab-case（如 `build-tools/`, `config-parser/`, `utils/`），避免单字符目录名。
 - 测试文件命名规则请参见“测试规范”章节，此处不再赘述。
 - 缩写：类型/类名中的缩写统一大写（如 `APIClient`, `HTMLParser`）；变量/函数中的缩写遵循 camelCase（如 `apiClient`）；避免无意义缩写。
