@@ -22,11 +22,6 @@ export const articlesSidebar: DefaultTheme.SidebarItem[] = [
   },
   {
     text: "前端",
-    items: [
-      {
-        text: "常用的 JavaScript 方法",
-        link: "/articles/common-js-func"
-      }
-    ]
+    items: []
   }
 ];
