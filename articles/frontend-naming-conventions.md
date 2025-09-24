@@ -10,8 +10,8 @@
 
 1. 包管理器统一使用 `pnpm`。
 2. 代码质量与格式化工具：
-   - 自 2025-09-24 起，新建项目默认使用 `BiomeJS` 统一完成“格式化 + Lint + 导入整理”。统一以 `biome.json` 管理规则，并在 CI 执行 `biome ci`。
-   - 存量仍在过渡期的项目可沿用 `ESLint + Prettier`；详细过渡约定见“ESLint 迁移/兼容（过渡期）”小节。
+   - **自 2025-09-24 起**，新建项目默认使用 `BiomeJS` 统一完成“格式化 + Lint + 导入整理”。统一以 `biome.json` 管理规则，并在 CI 执行 `biome ci`。详细配置请参阅：[BiomeJS 配置示例](https://narukeu.github.io/codes/biomejs-config.html)。
+   - **存量仍在过渡期的项目可沿用** `ESLint + Prettier`；详细过渡约定见“ESLint 迁移/兼容（过渡期）”小节。
 3. 编辑器建议与要求：
    - VS Code 建议安装官方 Biome 扩展并设为默认格式化器（下文有详细约定）。
    - 项目应提供 `.editorconfig` 与 `.vscode/settings.json` 以统一开发体验。
@@ -20,15 +20,7 @@
 6. JS 工具库：原则上应使用 `es-toolkit` 等工具库代替 `lodash`。若需兼容旧操作系统或旧 `Node.js` 环境，此规定可酌情放宽。
 7. 语法与构建：采纳 `ES2022+` 语法与现代 TypeScript 配置（严格类型检查、ESM 优先、兼容现代构建工具）。如需兼容旧环境可按需降级。
 8. ESLint 迁移/兼容（过渡期）：
-   - 仅适用于沿用 ESLint 的项目：ESLint 配置必须为 flatConfig，并集成 `prettier`、`import-x`、`tsdoc` 与 `typescript-eslint`。为避免重复，请参考示例文件：[codes/eslint-flat-config.md](https://narukeu.github.io/codes/eslint-flat-config.html)（含基础版、带 `import-x`、React 版）。
-     - 使用 `import-x.flatConfigs.recommended` 与 `import-x.flatConfigs.typescript`；
-     - files 覆盖 `**/*.{js,mjs,cjs,jsx,ts,tsx,mts,cts}`；
-     - TypeScript 场景优先启用 `projectService: true`；必要时再配置 `parserOptions.project`，同时设置 `tsconfigRootDir`；如需默认项目，可启用 `projectService.allowDefaultProject`；
-     - 在 flat config 下使用 `settings["import-x/resolver-next"] = [createTypeScriptImportResolver(...)]` 启用 TS 路径与类型分辨；
-     - 需要 Node 与浏览器全局时可合并 `globals.browser` 与 `globals.node`。
-
-- Biome 配置示例与约定见：[codes/biomejs-config.md](https://narukeu.github.io/codes/biomejs-config.html)（含 React 规则集版本）。
-- 采用 Biome 时，无需安装 `eslint`、`@typescript-eslint/*`、`prettier` 及相关插件；统一以 `biome.json` 管理规则。
+   - 仅适用于沿用 ESLint 的项目：ESLint 配置必须为 `flatConfig` 格式，并集成 `prettier`、`import-x`、`tsdoc` 与 `typescript-eslint`，以确保代码风格与 Biome 保持一致。详细配置示例，请参阅：[Eslint 配置示例](https://narukeu.github.io/codes/eslint-flat-config.html)。
 
 ## TypeScript 配置规范
 
@@ -177,28 +169,14 @@
 - 花括号空格：启用（等价于 bracketSpacing: true）。
 - JSX/HTML 的尖括号换行：不与前一行同列（等价于 bracketSameLine: false）。
 - 换行符：LF；Git 也应配置为提交时强制 LF。
-- 导入整理：启用 Biome 的 organizeImports（`assist.actions.source.organizeImports = "on"`）。
+- 导入整理：启用 Biome 的 organizeImports。
 
-示例 `biome.json` 片段：
-
-```json
-{
-  "formatter": {
-    "indentWidth": 2,
-    "lineWidth": 80,
-    "quoteStyle": "double",
-    "trailingComma": "all",
-    "arrowParentheses": "always"
-  },
-  "organizeImports": { "enabled": true },
-  "linter": { "enabled": true, "rules": { "recommended": true } }
-}
-```
+团队统一的 `biome.json` 配置已包含上述所有规则。详细配置请参阅：[BiomeJS 配置示例](https://narukeu.github.io/codes/biomejs-config.html)。
 
 ### 2. 存量项目（ESLint + Prettier，过渡期）
 
 - 格式化以 Prettier 为准，风格参数与上文 Biome 设置保持一致（缩进 2、行宽 80、双引号、trailingComma: "all" 等）。
-- 导入顺序与分组遵循 `import-x/order` 统一配置（见“总体要求”中的 ESLint 过渡约定）。
+- 导入顺序与分组遵循 `import-x/order` 规则。具体配置请参阅“总体要求”章节中链接的 ESLint 示例。
 - 过渡期内的项目应规划迁移至 Biome，并在 CI 中保持与 Biome 一致的风格与校验策略。
 
 ### 3. 语法与写法偏好
@@ -212,7 +190,7 @@
 ### 4. 导入与模块组织风格
 
 - 若使用 Biome：由 Biome 自动整理导入；分组策略保持“内建/第三方/工作区别名/本地父级/本地同级/类型/样式与副作用”的语义顺序。
-- 若沿用 ESLint：导入顺序与分组遵循 `import-x/order` 统一配置（见“总体要求”中 ESLint 示例）。
+- 若沿用 ESLint：导入顺序与分组遵循 `import-x/order` 统一配置（参阅“总体要求”中链接的 ESLint 示例）。
 - 导出风格应与模块职责一致：默认导出用于表达文件的主功能；具名导出用于表达多功能并行的工具集合（命名与取舍详见“代码命名规范”）。
 
 ## 代码命名规范
@@ -257,7 +235,7 @@
 - Type：使用 PascalCase（如 `BuildMode`, `AssetInfo`, `LoaderResult`）
 - Enum：使用 PascalCase（如 `UserStatus`, `APIEndpoint`, `ErrorCode`）
 - Enum 成员：使用 UPPER_SNAKE_CASE（如 `ACTIVE`, `INACTIVE`, `PENDING`）
-- Enum：在工具链支持（由 tsc 产出或明确支持 `const enum` 内联）的项目中优先使用 `const enum` 以减少产物体积；否则改用对象常量配合 `as const`、普通 `enum`，或字面量联合类型（详见 TS 配置章节“const enum 与 isolatedModules 注意事项”）。
+- Enum：在工具链支持的项目中优先使用 `const enum` 以减少产物体积。关于其使用限制、风险及替代方案，**请严格遵守“TypeScript 配置规范”章节中“const enum 与 isolatedModules 注意事项”的详细规定**。
 
 ### 泛型命名
 
@@ -303,11 +281,17 @@
 
 ## 前端项目通用规范
 
-1. 一个页面中用到的多个组件不得放在同一文件中。
-2. 凡是封装的公共组件，组件文件的统一目录下，应该要有一个 README.md 说明文件，布局文件除外。
-3. 进行删除操作的时候应当有确认。
-4. 如果使用的组件库的表格组件支持无分页的虚拟滚动功能，则无需进行分页设置。
-5. 封装公共组件时应当将组件本体和组件 props 类型分离，例如，要封装一个 `CommonInput` 的 Vue 组件，该组件所在目录下应该是这个样子：
+### 组件设计原则
+
+1.  **单一职责**：一个组件文件只应包含一个主要组件。若一个页面需要多个组件，应将它们拆分到各自的文件中。
+2.  **关注点分离**：业务模块的编辑表单组件应与主表组件分开存放，不得放在同一文件中，以实现逻辑解耦。
+3.  **文档化**：凡是封装的公共组件，其目录下应包含一个 `README.md` 说明文件，用于解释组件的用途、props 和事件（布局文件除外）。
+
+### 其他通用规范
+
+1. 进行删除操作的时候应当有确认。
+2. 如果使用的组件库的表格组件支持无分页的虚拟滚动功能，则无需进行分页设置。
+3. 封装公共组件时应当将组件本体和组件 props 类型分离，例如，要封装一个 `CommonInput` 的 Vue 组件，该组件所在目录下应该是这个样子：
 
 ```
 - index.ts
@@ -322,7 +306,7 @@ export { default as CommonInput } from "./common-input.vue";
 export * from "./types";
 ```
 
-6. 对于采用 Vite、Webpack、Next.js 构建的项目，团队约定推荐设置路径前缀 `@`（可按需采用其他前缀），并确保与推荐的 TypeScript 配置兼容：
+4. 对于采用 Vite、Webpack、Next.js 构建的项目，团队约定推荐设置路径前缀 `@`（可按需采用其他前缀），并确保与推荐的 TypeScript 配置兼容：
    `vite.config.ts`：
 
 ```typescript
@@ -352,12 +336,11 @@ export default defineConfig({
 }
 ```
 
-7. 对于复杂状态，应当考虑使用状态管理库进行统一管理，也要对这些状态进行持久化存储。
-8. 可以对 localStorage 进行封装。
-9. 【适用于微信小程序，以及采用了文件系统路由的项目】关于页面的命名，如果页面名称包含两个以上单词时，应当使用短横线 `-` 连接，比如：`user-list`。不要使用小驼峰命名。
-10. 主表页面的列配置（columns）应当放在单独的 JS/TS 文件中，因为有些地方可能需要复用这些列配置。
-11. 路由中组件应该使用懒加载导入。
-12. 业务模块的编辑表单组件应与主表组件分开存放，不得放在同一文件中。
+5. 对于复杂状态，应当考虑使用状态管理库进行统一管理，也要对这些状态进行持久化存储。
+6. 可以对 localStorage 进行封装。
+7. 【适用于微信小程序，以及采用了文件系统路由的项目】页面文件命名遵循“代码命名规范”中定义的 `kebab-case` 风格（如 `user-list`），不要使用小驼峰命名。
+8. 主表页面的列配置（columns）应当放在单独的 JS/TS 文件中，因为有些地方可能需要复用这些列配置。
+9. 路由中组件应该使用懒加载导入。
 
 ## CSS 规范
 
@@ -376,7 +359,7 @@ export default defineConfig({
 1. 基于 Vue 3 的项目必须使用 TypeScript。
 2. 在 Vue 组件中，必须采用组合式 API（Composition API）进行逻辑组织。
 3. 样式组织：优先使用 `<style scoped>`；若单独文件，放置在与组件同目录，文件名与组件名保持一致（如 `UserCard.vue` 搭配 `user-card.scss`），避免在 Vue 项目中使用 CSS Modules。
-4. 当组件定义的数据较多时，应该把所有组件数据定义在 `pageData` 这个响应式对象之下，比如：
+4. 对于状态较为复杂的组件（例如包含多个 loading 状态、表单数据、表格数据等），**推荐**将这些离散的状态聚合到一个 `pageData` 响应式对象中进行管理。这有助于收敛状态，方便整体操作（如重置），并使模板中的访问逻辑更清晰（如 `pageData.loading`）。
 
    ```typescript
    const pageData = reactive({
@@ -512,11 +495,12 @@ const props = withDefaults(defineProps<DialogProps>(), {
 
 ### 通用规范（后端）
 
-1. 安全：统一采用 `helmet`、CORS 策略、参数化查询与输入校验；鉴权与授权必须覆盖敏感接口；会话管理与限流（防暴力破解）必备。
-2. 日志：按等级输出（error/warn/info/debug），可选集成 `winston` 或使用框架内置 Logger，关键路径与安全事件需留痕；建议接入集中化日志（如 ELK/Cloud）。
-3. 配置：环境变量集中管理（如 `@nestjs/config`、`@fastify/env`、`dotenv`），区分环境并提供校验。
-4. 测试：单元测试（Jest/tap）、集成测试（使用测试数据库）、E2E（Playwright/Cypress 或 supertest）；推荐 AAA 模式。覆盖率基线与细节统一见“测试规范”。
-5. 性能：开启压缩、缓存（Redis/内存）、数据库索引与连接池，监控关键指标。
+1. **安全**：统一采用 `helmet`、CORS 策略、参数化查询与输入校验；鉴权与授权必须覆盖敏感接口；会话管理与限流（防暴力破解）必备。
+2. **日志**：按等级输出（error/warn/info/debug），可选集成 `winston` 或使用框架内置 Logger，关键路径与安全事件需留痕；建议接入集中化日志（如 ELK/Cloud）。
+3. **配置**：环境变量集中管理（如 `@nestjs/config`、`@fastify/env`、`dotenv`），区分环境并提供校验。
+4. **测试**：单元测试（Jest/tap）、集成测试（使用测试数据库）、E2E（Playwright/Cypress 或 supertest）；推荐 AAA 模式。覆盖率基线与细节统一见“测试规范”。
+5. **性能**：开启压缩、缓存（Redis/内存）、数据库索引与连接池，监控关键指标。
+6. **API 命名约定**：为保证 API 风格统一，数据查询接口应遵循以下命名约定：`findAll` 用于返回符合条件的全量数据列表；`findList` 用于返回分页数据列表。
 
 ### NestJS 项目规范
 
@@ -553,15 +537,14 @@ const props = withDefaults(defineProps<DialogProps>(), {
    **DTO 中也要设置好 @ApiProperty**。
 
 5. 后端应该对前端传来的数据进行第二次的校验，校验不通过的时候应当抛出异常。
-6. `findAll` 接口不得做分页，如果需要做一个分页查询的接口，请定义名为 `findList` 的接口。
-7. 文件下载接口必须做鉴权并采用流式传输，且应支持 Range 请求（`Accept-Ranges: bytes`）以便断点续传；当文件大于团队约定阈值（例如 N MB）或通过对象存储分发时，再启用分片/分段与签名直链等增强能力。若项目采用云服务商对象存储，建议通过临时凭证/预签名 URL 让用户直连下载。
-8. 使用 `class-validator` 和 `class-transformer` 进行数据验证和转换。
-9. 使用依赖注入（DI）管理服务和模块间的依赖关系。
-10. 合理使用中间件、拦截器、守卫和过滤器。
-11. 数据库操作使用 TypeORM 或 Prisma，避免直接写 SQL。
-12. 环境变量使用 `@nestjs/config` 管理。
-13. 日志/安全/测试请遵循“通用规范（后端）”。
-14. 适配器优先使用 `Fastify` 而不是 `Express`。
+6. 文件下载接口必须做鉴权并采用流式传输，且应支持 Range 请求（`Accept-Ranges: bytes`）以便断点续传；当文件大于团队约定阈值（例如 N MB）或通过对象存储分发时，再启用分片/分段与签名直链等增强能力。若项目采用云服务商对象存储，建议通过临时凭证/预签名 URL 让用户直连下载。
+7. 使用 `class-validator` 和 `class-transformer` 进行数据验证和转换。
+8. 使用依赖注入（DI）管理服务和模块间的依赖关系。
+9. 合理使用中间件、拦截器、守卫和过滤器。
+10. 数据库操作使用 TypeORM 或 Prisma，避免直接写 SQL。
+11. 环境变量使用 `@nestjs/config` 管理。
+12. 日志/安全/测试请遵循“通用规范（后端）”。
+13. 适配器优先使用 `Fastify` 而不是 `Express`。
 
 ### Fastify 项目规范
 
