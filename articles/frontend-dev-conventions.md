@@ -393,12 +393,42 @@ const props = withDefaults(defineProps<DialogProps>(), {
 5. 后端应该对前端传来的数据进行第二次的校验，校验不通过的时候应当抛出异常。
 6. 文件下载接口必须做鉴权并采用流式传输，且应支持 Range 请求（`Accept-Ranges: bytes`）以便断点续传；当文件大于团队约定阈值（例如 N MB）或通过对象存储分发时，再启用分片/分段与签名直链等增强能力。若项目采用云服务商对象存储，建议通过临时凭证/预签名 URL 让用户直连下载。
 7. 使用 `class-validator` 和 `class-transformer` 进行数据验证和转换。
-8. 使用依赖注入（DI）管理服务和模块间的依赖关系。
-9. 合理使用中间件、拦截器、守卫和过滤器。
-10. 数据库操作使用 TypeORM 或 Prisma，避免直接写 SQL。
-11. 环境变量使用 `@nestjs/config` 管理。
-12. 日志/安全/测试请遵循“通用规范（后端）”。
-13. 适配器优先使用 `Fastify` 而不是 `Express`。
+8. 显式注入依赖以保证元数据完整性。推荐使用 `@Inject()` 装饰器来显式声明依赖，尤其是在现代 TypeScript 配置（如 `isolatedModules` 或 `verbatimModuleSyntax`）下，这能确保依赖注入在编译时和运行时都能稳定工作。
+
+   **动机**：
+   - **保证元数据**：TypeScript 5+ 的某些模块策略（如 `verbatimModuleSyntax`）可能会移除仅在类型位置使用的导入（`import type` 或 `import { Type } from '...'` 后仅用作类型注解）。这会导致 NestJS 在运行时因缺少必要的参数元数据而无法正确实例化依赖。使用 `@Inject(Service)` 能强制保留对服务的“值级”引用，从而确保 DI 容器总能获取正确的提供者（Provider）令牌。
+   - **明确性与一致性**：根据官方文档，`@Inject()` 是处理非类令牌（如字符串或符号）、自定义提供者和解决循环依赖（配合 `forwardRef`）的标准方式。统一采用显式注入可让代码意图更清晰，并与 NestJS 的高级 DI 模式保持一致。
+   - **避免参数属性**：将依赖声明为类属性（`private readonly appService: AppService`），并在构造函数中为其赋值，可以规避 TypeScript 中“参数属性与装饰器”结合使用时的一些限制和潜在问题。
+
+   **推荐实践**：
+
+   ```typescript
+   import { Controller, Get, Inject } from "@nestjs/common";
+   import { AppService } from "./app.service";
+
+   @Controller()
+   export class AppController {
+     // 明确声明为类属性
+     private readonly appService: AppService;
+
+     // 显式使用 @Inject() 保证运行时元数据
+     constructor(@Inject(AppService) appService: AppService) {
+       this.appService = appService;
+     }
+
+     @Get()
+     getHello(): string {
+       return this.appService.getHello();
+     }
+   }
+   ```
+
+9. 使用依赖注入（DI）管理服务和模块间的依赖关系。
+10. 合理使用中间件、拦截器、守卫和过滤器。
+11. 数据库操作使用 TypeORM 或 Prisma，避免直接写 SQL。
+12. 环境变量使用 `@nestjs/config` 管理。
+13. 日志/安全/测试请遵循“通用规范（后端）”。
+14. 适配器优先使用 `Fastify` 而不是 `Express`。
 
 ### Fastify 项目规范
 

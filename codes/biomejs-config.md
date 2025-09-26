@@ -10,7 +10,7 @@ BiomeJS 更简便
 {
   "$schema": "https://biomejs.dev/schemas/2.2.4/schema.json",
   "vcs": {
-    "enabled": false,
+    "enabled": true,
     "clientKind": "git",
     // 使用 .gitignore 文件来忽略文件
     "useIgnoreFile": true
@@ -44,6 +44,8 @@ BiomeJS 更简便
         "useForOf": "error"
       },
       "correctness": {
+        // 强制 JSDoc 注释行以单个星号开头，第一个除外。
+        "useSingleJsDocAsterisk": "error",
         // 未使用的变量发出警告，但是允许使用 _ 开头的变量名来表示未使用
         "noUnusedVariables": "warn"
       }
@@ -81,7 +83,7 @@ BiomeJS 更简便
 {
   "$schema": "https://biomejs.dev/schemas/2.2.4/schema.json",
   "vcs": {
-    "enabled": false,
+    "enabled": true,
     "clientKind": "git",
     // 使用 .gitignore 文件来忽略文件
     "useIgnoreFile": true
@@ -117,6 +119,8 @@ BiomeJS 更简便
         "useComponentExportOnlyModules": "warn"
       },
       "correctness": {
+        // 强制 JSDoc 注释行以单个星号开头，第一个除外。
+        "useSingleJsDocAsterisk": "error",
         // 未使用的变量发出警告，但是允许使用 _ 开头的变量名来表示未使用
         "noUnusedVariables": "warn",
         // React：Hook 必须在函数组件或自定义 Hook 的顶层调用
