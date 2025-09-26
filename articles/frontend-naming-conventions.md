@@ -81,7 +81,32 @@
   - 枚举名使用 PascalCase (`UserStatus`)。
   - 枚举成员使用 UPPER_SNAKE_CASE (`ACTIVE`)。
   - 优先使用 `const enum` 以优化产物体积，但需确保构建链支持且符合 `isolatedModules` 的使用要求。
-- **泛型 (Generics)**：简单泛型使用 `T`, `U`, `K`；复杂泛型使用有意义的 PascalCase 名称 (`TResultData`)。
+- **泛型 (Generics)**：
+  - 简单泛型使用 `T`, `U`, `K` 等单个大写字母。
+  - 当泛型本身较为复杂，或在函数/类型中同时使用多个泛型参数时，应为所有泛型使用有意义的 `PascalCase` 名称，以增强代码的上下文可读性。
+
+  例如，在下列函数中，使用 `NodeShape` 这样的 `PascalCase` 名称比单独使用 `T` 更直观：
+
+  ```typescript
+  // 推荐
+  export const createTree = <
+    NodeShape extends Record<PropertyKey, unknown>,
+    IdKey extends keyof NodeShape & string,
+    ChildrenKey extends string
+  >(): TreeNode<NodeShape, ChildrenKey>[] => {
+    // 省略...
+  };
+
+  // 不推荐
+  export const createTree = <
+    T extends Record<PropertyKey, unknown>,
+    IdKey extends keyof T & string,
+    ChildrenKey extends string
+  >(): TreeNode<T, ChildrenKey>[] => {
+    // 省略...
+  };
+  ```
+
 - **命名空间 (Namespace)**：禁止在新代码中使用，统一使用 ES 模块。
 
 ## 7. CSS 样式规范
