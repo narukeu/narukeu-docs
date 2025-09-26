@@ -17,6 +17,10 @@ export const codesSidebar: DefaultTheme.SidebarItem[] = [
     ]
   },
   {
+    text: "类型判断",
+    items: [{ text: "isEmpty 判空函数", link: "/codes/is-empty" }]
+  },
+  {
     text: "数组",
     items: [
       { text: "对象数组指定键求和", link: "/codes/array-sum" },
