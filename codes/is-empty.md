@@ -1,5 +1,8 @@
 # isEmpty 判空函数
 
+> [!TIP]
+> 这个函数修改自 [radash](https://github.com/sodiray/radash) 项目，遵守 MIT 许可证。
+
 ## 代码
 
 ```typescript
