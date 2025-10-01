@@ -43,6 +43,10 @@ BiomeJS 更简便
         // 推荐使用 for...of 而不是传统的 for 循环
         "useForOf": "error"
       },
+      "performance": {
+        // 不允许使用 delete 运算符
+        "noDelete": "error"
+      },
       "correctness": {
         // 强制 JSDoc 注释行以单个星号开头，第一个除外。
         "useSingleJsDocAsterisk": "error",
@@ -110,6 +114,10 @@ BiomeJS 更简便
         // 不准出现 var
         "noVar": "warn"
       },
+      "performance": {
+        // 不允许使用 delete 运算符
+        "noDelete": "error"
+      },
       "style": {
         // 应当使用 const
         "useConst": "warn",
@@ -128,8 +136,14 @@ BiomeJS 更简便
         // React：确保 Hook 的依赖项数组是正确的
         "useExhaustiveDependencies": "warn",
         // React：不允许给 props 赋值
-        "noReactPropAssignments": "error"
-      }
+        "noReactPropAssignments": "error",
+        // React：不允许在其他组件内定义 React 组件。
+        "noNestedComponentDefinitions": "error",
+        // React：优先使用自闭合元素
+        "useSelfClosingElements": "error"
+      },
+      // React：禁止隐性布尔值转换
+      "noImplicitBoolean": "error"
     }
   },
   "javascript": {
