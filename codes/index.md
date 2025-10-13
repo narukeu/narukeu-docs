@@ -7,3 +7,7 @@
 - 简介/作用
 - 代码
 - 用法和输出
+
+## 工具库
+
+其中提到的一些函数已经封装成了 TS 工具库，详见 [okutils](https://github.com/okutils)
