@@ -1,5 +1,10 @@
 import { defineConfig } from "vitepress";
-import { codesSidebar, articlesSidebar, designDocSidebar } from "./sidebars";
+import {
+  codesSidebar,
+  articlesSidebar,
+  designDocSidebar,
+  springSidebar
+} from "./sidebars";
 import { MermaidMarkdown } from "./mermaid-markdown";
 
 // https://vitepress.dev/reference/site-config
@@ -14,12 +19,14 @@ export default defineConfig({
       { text: "主页", link: "/" },
       { text: "代码片段", link: "/codes" },
       { text: "文章", link: "/articles" },
-      { text: "设计文档", link: "/design-doc" }
+      { text: "设计文档", link: "/design-doc" },
+      { text: "Spring", link: "/spring" }
     ],
     sidebar: {
       "/articles": articlesSidebar,
       "/codes": codesSidebar,
-      "/design-doc": designDocSidebar
+      "/design-doc": designDocSidebar,
+      "/spring": springSidebar
     },
     lastUpdated: {
       text: "最后更新于",
