@@ -77,10 +77,6 @@
 ## 6. TypeScript 类型命名规范
 
 - **接口 (Interface) 与类型别名 (Type)**：使用 PascalCase，如 `UserConfig`, `BuildMode`。
-- **枚举 (Enum)**：
-  - 枚举名使用 PascalCase (`UserStatus`)。
-  - 枚举成员使用 UPPER_SNAKE_CASE (`ACTIVE`)。
-  - 优先使用 `const enum` 以优化产物体积，但需确保构建链支持且符合 `isolatedModules` 的使用要求。
 - **泛型 (Generics)**：
   - 简单泛型使用 `T`, `U`, `K` 等单个大写字母。
   - 当泛型本身较为复杂，或在函数/类型中同时使用多个泛型参数时，应为所有泛型使用有意义的 `PascalCase` 名称，以增强代码的上下文可读性。
@@ -108,6 +104,16 @@
   ```
 
 - **命名空间 (Namespace)**：禁止在新代码中使用，统一使用 ES 模块。
+- **枚举 (Enum)**：
+  - 枚举名称和成员都使用 `UPPER_SNAKE_CASE`
+  - 不使用 `enum` 关键字，也不使用 `const enum` 来定义枚举，而是使用 `as const` 断言的对象字面量来定义枚举，如
+    ```typescript
+    export const USER_STATUS = {
+      ACTIVE: "ACTIVE",
+      INACTIVE: "INACTIVE"
+    } as const;
+    export type UserStatus = (typeof USER_STATUS)[keyof typeof USER_STATUS];
+    ```
 
 ## 7. CSS 样式规范
 
@@ -119,3 +125,7 @@
 
 - **核心原则**：注释重在解释“**为什么**”（Why），而非“**做了什么**”（What）。代码应尽量自解释其功能，注释补充设计意图、背景与原因。
 - **TSDoc 风格**：在 TypeScript 项目中，公开的 API 应使用 TSDoc 风格的块注释 (`/** ... */`)，并使用 `@param`, `@returns` 等标准标签。
+
+```
+
+```
