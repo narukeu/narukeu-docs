@@ -348,13 +348,7 @@ const props = withDefaults(defineProps<DialogProps>(), {
 
 ## Node.js 后端项目规范
 
-### 通用规范（后端）
-
-1. **安全**：统一采用 `helmet`、CORS 策略、参数化查询与输入校验；鉴权与授权必须覆盖敏感接口；会话管理与限流（防暴力破解）必备。
-2. **日志**：按等级输出（error/warn/info/debug），可选集成 `winston` 或使用框架内置 Logger，关键路径与安全事件需留痕；建议接入集中化日志（如 ELK/Cloud）。
-3. **配置**：环境变量集中管理（如 `@nestjs/config`、`@fastify/env`、`dotenv`），区分环境并提供校验。
-4. **测试**：单元测试（Jest/tap）、集成测试（使用测试数据库）、E2E（Playwright/Cypress 或 supertest）；推荐 AAA 模式。覆盖率基线与细节统一见“测试规范”。
-5. **性能**：开启压缩、缓存（Redis/内存）、数据库索引与连接池，监控关键指标。
+所有后端项目的通用开发规范，请参阅 [《后端项目开发规范（通用）》](./backend-rules.md) 文档。本文档仅补充特定于 Node.js 技术栈（如 NestJS、Fastify）的规范。
 
 ### NestJS 项目规范
 

@@ -12,6 +12,10 @@ export const articlesSidebar: DefaultTheme.SidebarItem[] = [
       {
         text: "Node.js 项目风格和命名规范",
         link: "/articles/frontend-naming-conventions"
+      },
+      {
+        text: "后端项目开发规范",
+        link: "/articles/backend-rules"
       }
     ]
   },
