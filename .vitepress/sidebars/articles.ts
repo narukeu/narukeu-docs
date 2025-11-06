@@ -16,6 +16,10 @@ export const articlesSidebar: DefaultTheme.SidebarItem[] = [
       {
         text: "后端项目开发规范",
         link: "/articles/backend-rules"
+      },
+      {
+        text: "NestJS 开发规范",
+        link: "/articles/nestjs-dev-conventions"
       }
     ]
   },
