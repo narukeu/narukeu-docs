@@ -9,14 +9,14 @@
     "clear:all": "rimraf .vitepress/dist .vitepress/cache"
   },
   "license": "CC0-1.0",
-  "packageManager": "pnpm@10.14.0",
+  "packageManager": "pnpm@10.20.0",
   "devDependencies": {
     "prettier": "^3.6.2",
-    "rimraf": "^6.0.1",
-    "vitepress": "^1.6.4"
+    "rimraf": "^6.1.0",
+    "vitepress": "2.0.0-alpha.12"
   },
   "dependencies": {
-    "mermaid": "^11.10.1",
-    "vue": "^3.5.19"
+    "mermaid": "^11.12.1",
+    "vue": "^3.5.24"
   }
 }
