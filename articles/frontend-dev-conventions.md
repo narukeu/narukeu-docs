@@ -11,13 +11,13 @@
 ## 总体要求
 
 1. 包管理器统一使用 `pnpm`。
-2. **代码质量与格式化工具**：自 2025-09-24 起，新建项目默认使用 `BiomeJS` 作为统一的代码质量工具。所有代码的命名、格式化与风格规范，均遵循《代码命名与风格规范》文档的约定。存量项目可暂时沿用 `ESLint + Prettier`，但其规则也应与上述规范保持一致。
+2. **代码质量与格式化工具**：自 2025-09-24 起，新建项目默认且唯一使用 `BiomeJS` 作为代码质量与格式化工具（含导入排序）。所有代码的命名、格式化与风格规范，均遵循《代码命名与风格规范》文档的约定。存量项目可暂时沿用 `ESLint + Prettier`，但不再新增 ESLint 配置；迁移计划视项目情况推进。
 3. **编辑器建议与要求**：
    - VS Code 建议安装官方 Biome 扩展并设为默认格式化器。
    - 项目应提供 `.editorconfig` 与 `.vscode/settings.json` 以统一开发体验。
 4. **依赖选择**：原则上不得使用已经停止维护或长期未更新的库（如果一个活跃第三方库依赖某个已停止维护的库，则视情况评估）。
 5. **JS 工具库**：原则上应使用 `es-toolkit` 等工具库代替 `lodash`。若需兼容旧操作系统或旧 `Node.js` 环境，此规定可酌情放宽。
-6. **语法与构建**：采纳 `ES2022+` 语法与现代 TypeScript 配置（严格类型检查、ESM 优先、兼容现代构建工具）。如需兼容旧环境可按需降级。
+6. **语法与构建**：采纳 `ES2022+` 语法与现代 TypeScript 配置（严格类型检查、ESM 优先、兼容现代构建工具）。运行与构建环境最低版本为 **Node.js 22.x**；如需兼容旧环境可按需降级并在文档说明。
 
 ## TypeScript 配置规范
 
@@ -42,8 +42,8 @@
     "exactOptionalPropertyTypes": true,
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
     "noImplicitOverride": true,
     "noUncheckedIndexedAccess": true,
     "useUnknownInCatchVariables": true
@@ -144,13 +144,9 @@
 }
 ```
 
-#### 7. const enum 与 isolatedModules 注意事项
+#### 7. 枚举策略
 
-- `const enum` 在由 `tsc` 产出时会被内联，可减小体积；但许多仅转译的链路（如 Babel、部分 SWC、某些 Jest 转译配置）不会内联，可能导致运行时引用缺失。
-- 在启用 `isolatedModules` 或“仅转译不类型检查”的工具链中，若工具不处理 `const enum`，建议：
-  - 开启 `preserveConstEnums` 并配合可替换的编译链路，或
-  - 改用对象常量配合 `as const`、普通 `enum`，或字面量联合类型。
-- 选择 `const enum` 前请确认构建链路（含测试与文档构建）均能正确处理；否则按上面替代方案落地。
+枚举命名与使用策略遵循 [《代码命名与风格规范》](/articles/frontend-naming-conventions) 中的统一要求（不使用 `enum`/`const enum`，改用 `as const` 对象 + 字面量联合类型）。
 
 ## 前端项目通用规范
 
@@ -241,7 +237,7 @@ export default defineConfig({
 11. 使用 `withDefaults(defineProps<DialogProps>(), {})` 去定义组件的 props：
 
 ```typescript
-// 按照 import-x/order 规则排序导入
+// 导入顺序与分组由 Biome 负责自动组织，遵循《代码命名与风格规范》中的分组顺序
 import { withDefaults, defineProps } from "vue";
 
 export interface DialogProps {
@@ -353,6 +349,10 @@ const props = withDefaults(defineProps<DialogProps>(), {
 ### NestJS 项目规范
 
 请参见《[NestJS 开发规范](/articles/nestjs-dev-conventions.md)》。
+
+## 命名与文件命名
+
+所有代码的命名、文件命名、格式化与风格规范均遵循 [《代码命名与风格规范》](/articles/frontend-naming-conventions) 文档的统一约定。
 
 ## 测试规范
 

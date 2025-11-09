@@ -16,7 +16,7 @@ NestJS + TypeScript + PostgreSQL
 
 ### 2.1 Node.js 版本
 
-- 运行时采用 Node.js 24.x；允许使用 Node 24 的原生能力与语法特性。
+Node.js 版本要求遵循 [《Node.js 项目开发规范》](/articles/frontend-dev-conventions) 中的统一约定（最低 Node.js 22.x）。
 
 ### 2.2 常用脚本（示例）
 
@@ -29,10 +29,13 @@ NestJS + TypeScript + PostgreSQL
 
 ### 3.1 依赖注入（DI）
 
-- 推荐显式注入以确保运行时元数据完整：优先使用 `@Inject()` 显式标注依赖。
-- 避免“参数属性 + 装饰器”的组合限制，先定义类属性，再在构造函数中赋值。
+**为什么采用显式声明属性的 DI 风格？**
 
-示例：
+本规范推荐的 DI 风格（先声明属性，再在构造函数中通过 `@Inject()` 注入并赋值）与 NestJS 官方文档常见的"参数属性（Parameter Properties）"写法（`constructor(private readonly appService: AppService) {}`）不同。这是为了**兼容 TypeScript 的 `verbatimModuleSyntax: true` 编译选项**。
+
+当启用 `verbatimModuleSyntax` 时，TypeScript 会严格按照代码书写保留 import/export 语句，仅用作类型的导入可能被擦除。在某些场景下，使用参数属性 + 装饰器的组合可能导致运行时元数据缺失，从而引发 DI 失败。通过显式声明属性并在构造函数中使用 `@Inject()` 装饰器，可以确保依赖信息在运行时完整保留。
+
+**推荐的 DI 风格示例：**
 
 ```ts
 import { Controller, Get, Inject } from "@nestjs/common";
@@ -53,7 +56,7 @@ export class AppController {
 }
 ```
 
-在 TypeScript 5 严格的模块/值导入策略（如 `verbatimModuleSyntax`）下，此模式可避免类型导入被“擦除”导致的运行时元数据缺失。
+这种写法在 `verbatimModuleSyntax: true` 下能够可靠工作，同时也保持了代码的清晰性。
 
 ### 3.2 Swagger 注解（DTO）
 
@@ -106,6 +109,7 @@ export class CreateSomethingDto {
 - 显式定义关系与级联；避免滥用 `eager`，按需通过 `relations`/QueryBuilder 加载。
 - 简单查询用 `Repository`，复杂查询用 `QueryBuilder`，统一参数化，避免 `SELECT *` 与 N+1。
 - 分页统一走应用层分页 VO，或结合 ORM 的分页能力实现。
+- 外键策略：遵循《后端项目开发规范（通用）》——数据库层不创建物理外键约束，使用应用层/服务层保证数据一致性。建模关系仅用于 ORM 层的对象导航与查询辅助；禁止开启自动同步生成外键（禁用 `synchronize: true` 或相关自动迁移中生成 FK 的配置），迁移脚本需由人工/审核流程维护（如 Flyway/手写 SQL）。
 
 ### 5.4 事务与软删除
 
@@ -114,10 +118,48 @@ export class CreateSomethingDto {
 
 ## 6. API 设计在 NestJS 的落地
 
-- 控制器与服务方法命名必须与《后端项目开发规范（通用）》一致（如 `findOne`、`findList`、`findAll`、`create`、`update`、`remove`/`restore` 等）。
-- HTTP 仅使用 GET/POST；复杂查询（如 `findList`/`findAll`/树查询）使用 POST 携带 JSON Body。
-- 查询模式 `mode`（`default`/`withDeleted`/`onlyDeleted`）与权限点绑定的策略，遵循通用规范；在网关/守卫中完成追加校验。
-- 文件下载接口需做鉴权，支持流式与断点续传（Range 请求）。
+NestJS 项目的 API 设计完全遵循 [《后端项目开发规范（通用）》](/articles/backend-rules)，包括但不限于：
+
+- 接口命名（`findOne`、`findList`、`findAll`、`create`、`update`、`remove`/`restore` 等）
+- HTTP 方法使用（仅 GET/POST）
+- 查询模式 `mode`（`default`/`withDeleted`/`onlyDeleted`）与权限点绑定策略
+- 文件下载接口的鉴权、流式传输与断点续传支持
+
+**NestJS 落地示例：**
+
+```ts
+import { Controller, Post, Body, Get, Param } from "@nestjs/common";
+import { ApiTags, ApiOperation } from "@nestjs/swagger";
+import { UserService } from "./user.service";
+import { FindListDto } from "./dto/find-list.dto";
+import { CreateUserDto } from "./dto/create-user.dto";
+
+@ApiTags("用户管理")
+@Controller("users")
+export class UserController {
+  constructor(private readonly userService: UserService) {}
+
+  @Post("findList")
+  @ApiOperation({ summary: "查询用户列表（支持查询模式）" })
+  findList(@Body() dto: FindListDto) {
+    return this.userService.findList(dto);
+  }
+
+  @Get(":id")
+  @ApiOperation({ summary: "根据 ID 查询单个用户" })
+  findOne(@Param("id") id: string) {
+    return this.userService.findOne(id);
+  }
+
+  @Post()
+  @ApiOperation({ summary: "创建用户" })
+  create(@Body() dto: CreateUserDto) {
+    return this.userService.create(dto);
+  }
+}
+```
+
+在 NestJS 中，通过守卫（Guard）或拦截器（Interceptor）实现查询模式 `mode` 的权限校验与追加逻辑。
 
 ## 7. 参考
 

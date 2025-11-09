@@ -8,6 +8,7 @@
 >
 > 自 2025/09/24 之后，所有的新建项目使用 `BiomeJS` 作为唯一的代码格式化和质量检查工具，除非特殊需要，新的项目不再使用 `Eslint + Prettier` 作为代码格式化和质量检查工具。
 > 现有的使用了 `Eslint + Prettier` 项目暂时不迁移。
+> 在 Biome 完整支持 Markdown 之前，本博客不考虑迁移。
 
 - **统一工具**：所有项目必须使用 `BiomeJS` 作为代码格式化、风格检查（Lint）和导入排序的唯一工具。
 - **统一配置**：所有规则均由仓库根目录下的 `biome.jsonc` 文件集中管理，确保开发、CI/CD 等所有环节的行为一致。
@@ -69,10 +70,12 @@
 - **未使用的参数**：对于未使用的函数参数或解构变量，**必须**使用下划线 `_` 作为前缀，以消除 Linter 警告。此规则由 `"correctness/noUnusedVariables": "warn"` 强制检查。
 - **缩写**：类名中的缩写词应全部大写 (`APIClient`)；变量名中的缩写词遵循 camelCase (`apiClient`)。
 - **文件与目录**：
-  - 目录和通用文件：统一使用小写连字符命名法 (kebab-case)。
+  - 目录与所有源文件（含组件文件）统一使用小写连字符命名法 (kebab-case)，例如 `user-profile.tsx`, `login-form.vue`, `tree-node.ts`。
   - 后端特定文件 (NestJS)：遵循框架的点分式规范 (`user.service.ts`)。
   - 测试文件：命名为 `*.spec.ts` 或 `*.test.ts`。
-- **React 组件与 Hooks**：组件名用 PascalCase；自定义 Hook 必须以 `use` 开头。
+  - 例外：仅当某框架/工具链强制要求（极少数约定式元数据扫描场景）才允许使用其他命名形式，并需在代码旁给出注释说明原因。
+- **React/Vue/Solid 组件文件命名**：不使用 PascalCase 文件名；统一 kebab-case。组件内部的标识符（如 React 组件函数名）可按框架惯例使用 PascalCase；若未来统一要求去除组件内部 PascalCase，将在后续版本单独公告。
+- **Hooks**：自定义 React/Solid Hook 必须以 `use` 前缀开头。
 - **类型守卫函数**：统一使用 `isXxx` 格式命名。
 
 ## 6. TypeScript 类型命名规范
@@ -107,7 +110,7 @@
 - **命名空间 (Namespace)**：禁止在新代码中使用，统一使用 ES 模块。
 - **枚举 (Enum)**：
   - 枚举名称和成员都使用 `UPPER_SNAKE_CASE`
-  - 不使用 `enum` 关键字，也不使用 `const enum` 来定义枚举，而是使用 `as const` 断言的对象字面量来定义枚举，如
+  - 严格不使用 `enum` 与 `const enum`（与总体规范保持一致）。统一采用 `as const` 对象 + 字面量联合类型替代，如
     ```typescript
     export const USER_STATUS = {
       ACTIVE: "ACTIVE",
@@ -115,6 +118,13 @@
     } as const;
     export type UserStatus = (typeof USER_STATUS)[keyof typeof USER_STATUS];
     ```
+- **函数类型的定义**：
+  - 当函数签名中包含函数类型时（无论是作为参数还是返回值），都应使用 `type` 显式定义该函数类型，而不是在签名中内联。这有助于提高代码的可读性和复用性。
+    例如：
+  ```typescript
+  type Callback = (data: string) => void;
+  const fetchData = (callback: Callback): void => {};
+  ```
 
 ## 7. CSS 样式规范
 
@@ -126,3 +136,13 @@
 
 - **核心原则**：注释重在解释“**为什么**”（Why），而非“**做了什么**”（What）。代码应尽量自解释其功能，注释补充设计意图、背景与原因。
 - **TSDoc 风格**：在 TypeScript 项目中，公开的 API 应使用 TSDoc 风格的块注释 (`/** ... */`)，并使用 `@param`, `@returns` 等标准标签。
+
+## 9. Node.js 版本与编译器/工具链选项
+
+- **Node.js 版本基线**：新项目运行环境与构建环境的最低版本为 **Node.js 22.x**。若需使用仅在更高版本中可用的实验/新增特性，应在 README 或相关文档中明确说明并附加降级策略。
+- **TypeScript 编译选项（相关部分）**：
+  - `noUnusedParameters`: 设为 `false`（通过 Biome 的 `correctness/noUnusedVariables` + 前缀 `_` 约定处理未使用形参）。
+  - `noUnusedLocals`: 可视项目阶段与代码稳定度选择 `true` 或 `false`；若开启为 `true`，临时变量请及时清理或前缀 `_` 并在重构阶段移除。
+  - 保持与不使用 `enum/const enum` 策略一致，不因编译器优化需要启用 `preserveConstEnums` 等相关配置。
+- **未使用符号约定**：统一使用下划线前缀（例如 `_unused`, `_result`）允许存在于签名中；避免在实现体中残留无意义局部变量。
+- **工具链统一**：导入排序、格式化、Lint 均由 Biome 完成；不再为 Vue/React/Solid 单独保留 ESLint 配置。若历史项目仍含 `.eslintrc.*`，其状态为“遗留仅阅读”且不接受新增修改。
