@@ -15,13 +15,7 @@ export default defineConfig({
   description: "Web 文章、资料、代码片段等内容",
   themeConfig: {
     // https://vitepress.dev/reference/default-theme-config
-    nav: [
-      { text: "主页", link: "/" },
-      { text: "代码片段（前端）", link: "/codes" },
-      { text: "文章/资料", link: "/articles" },
-      { text: "设计文档", link: "/design-doc" },
-      { text: "后端专区", link: "/spring" }
-    ],
+    nav: [{ text: "主页", link: "/" }],
     sidebar: {
       "/articles": articlesSidebar,
       "/codes": codesSidebar,
