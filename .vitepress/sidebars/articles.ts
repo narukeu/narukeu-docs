@@ -20,6 +20,14 @@ export const articlesSidebar: DefaultTheme.SidebarItem[] = [
       {
         text: "NestJS 开发规范",
         link: "/articles/nestjs-dev-conventions"
+      },
+      {
+        text: "Go 语言项目开发规范",
+        link: "/articles/go-conventions"
+      },
+      {
+        text: "Uber Go 风格指南（译）",
+        link: "/articles/uber-go"
       }
     ]
   },
