@@ -12,15 +12,15 @@ export default defineConfig({
   lang: "zh-Hans",
   head: [["link", { rel: "icon", href: "/favicon.png" }]],
   title: "Luke Na's Docs",
-  description: "前端、JS、TS 相关的博客和代码片段",
+  description: "Web 文章、资料、代码片段等内容",
   themeConfig: {
     // https://vitepress.dev/reference/default-theme-config
     nav: [
       { text: "主页", link: "/" },
-      { text: "代码片段", link: "/codes" },
-      { text: "文章", link: "/articles" },
+      { text: "代码片段（前端）", link: "/codes" },
+      { text: "文章/资料", link: "/articles" },
       { text: "设计文档", link: "/design-doc" },
-      { text: "Spring", link: "/spring" }
+      { text: "后端专区", link: "/spring" }
     ],
     sidebar: {
       "/articles": articlesSidebar,

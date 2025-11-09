@@ -4,7 +4,7 @@ layout: home
 
 hero:
   name: "Luke Na's Docs"
-  text: "前端、Node 相关文章和代码片段"
+  text: "Web 文章、资料、代码片段等内容"
 
   actions:
     - theme: brand
