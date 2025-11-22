@@ -3,6 +3,15 @@ import type { DefaultTheme } from "vitepress";
 export const articlesSidebar: DefaultTheme.SidebarItem[] = [
   { text: "简介", link: "/articles" },
   {
+    text: "杂谈",
+    items: [
+      {
+        text: "聊聊前端",
+        link: "/articles/oh-frontend"
+      }
+    ]
+  },
+  {
     text: "规范",
     items: [
       {
@@ -39,9 +48,5 @@ export const articlesSidebar: DefaultTheme.SidebarItem[] = [
         link: "/articles/linux-keep-usb-alive"
       }
     ]
-  },
-  {
-    text: "前端",
-    items: []
   }
 ];
