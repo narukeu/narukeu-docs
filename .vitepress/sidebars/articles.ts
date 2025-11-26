@@ -8,6 +8,10 @@ export const articlesSidebar: DefaultTheme.SidebarItem[] = [
       {
         text: "聊聊前端",
         link: "/articles/oh-frontend"
+      },
+      {
+        text: "原生工具浪潮下 Babel 的定位与未来演进",
+        link: "/articles/babel-in-future"
       }
     ]
   },
