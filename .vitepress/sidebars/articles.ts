@@ -6,12 +6,16 @@ export const articlesSidebar: DefaultTheme.SidebarItem[] = [
     text: "杂谈",
     items: [
       {
-        text: "聊聊前端",
+        text: "聊下前端 —— 关于我的职业经历和前端是否会被“取代”的碎碎念",
         link: "/articles/oh-frontend"
       },
       {
         text: "原生工具浪潮下 Babel 的定位与未来演进",
         link: "/articles/babel-in-future"
+      },
+      {
+        text: "从 Anthropic 收购 Bun 谈起，聊聊 Bun 的败局",
+        link: "/articles/sharp-comment-bun"
       }
     ]
   },
