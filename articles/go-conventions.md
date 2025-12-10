@@ -87,6 +87,7 @@ func Open(name string) (*File, error) {
 - **变量与函数**：使用小驼峰命名法 (camelCase)，如 `buildProject`, `configPath`。推荐使用描述性强的长名称。
 - **常量**：因为你不知道未来这个常量是否允许在外部使用，所以一律使用 `CamelCase` 命名法。
 - **包名**：使用简短、小写的单词，不使用大写或下划线。包名应是单数形式（如 `net/url` 而非 `net/urls`），避免使用 "common", "util", "shared", "lib" 等无信息量的名称。
+- 在 import 包的时候，如果要设置别名，且别名需要用到多个单词时，使用小驼峰命名法 (camelCase)，如 `jsonUtil`, `httpClient`。
 - **结构体与接口**：使用大驼峰命名法 (PascalCase)，如 `UserProfile`, `DataFetcher`。
 - **接口**：
   - 单方法接口应以方法名加 `-er` 后缀命名（如 `Reader`, `Writer`, `Formatter`）。

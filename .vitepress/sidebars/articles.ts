@@ -16,6 +16,10 @@ export const articlesSidebar: DefaultTheme.SidebarItem[] = [
       {
         text: "从 Anthropic 收购 Bun 谈起，聊聊 Bun 的败局",
         link: "/articles/sharp-comment-bun"
+      },
+      {
+        text: "90% 代码用 AI 写？我拒了 Offer，也拒了所有华而不实的“网红技术”",
+        link: "/articles/i-choose-avoid"
       }
     ]
   },
