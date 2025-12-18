@@ -66,7 +66,8 @@
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "isolatedModules": true,
-    "verbatimModuleSyntax": true
+    "verbatimModuleSyntax": true,
+    "rewriteRelativeImportExtensions": true
   }
 }
 ```
@@ -76,6 +77,7 @@
 - `isolatedModules`: 确保每个文件可独立编译，提高构建工具兼容性
 - `verbatimModuleSyntax`: 严格按书写保留 import/export；较 `importsNotUsedAsValues`/`preserveValueImports` 更现代（TS ≥5）。
 - `esModuleInterop`: 改善 ES 模块与 CommonJS 互操作（同时隐式开启 `allowSyntheticDefaultImports`）。
+- `rewriteRelativeImportExtensions`: 将 `.ts` 扩展名在编译后重写为 `.js`，这样的话就不用在 TS 里使用 `import xxx from './a.js'` 的别扭写法。
 
 #### 4. 开发体验优化
 
