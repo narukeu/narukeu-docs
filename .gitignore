@@ -1,5 +1,6 @@
 dist
 .vitepress/cache
+.vitepress/temp
 pnpm-lock.yaml
 pnpm-workspace.yaml
 node_modules
