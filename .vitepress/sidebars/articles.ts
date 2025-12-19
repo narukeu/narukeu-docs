@@ -3,7 +3,25 @@ import type { DefaultTheme } from "vitepress";
 export const articlesSidebar: DefaultTheme.SidebarItem[] = [
   { text: "简介", link: "/articles" },
   {
-    text: "杂谈",
+    text: "TypeScript",
+    items: [
+      {
+        text: "聊下 `rewriteRelativeImportExtensions` 这个 TS 配置项",
+        link: "/articles/rewrite-relative-import-extensions"
+      }
+    ]
+  },
+  {
+    text: "Linux",
+    items: [
+      {
+        text: "使用 Systemd 防止移动硬盘休眠",
+        link: "/articles/linux-keep-usb-alive"
+      }
+    ]
+  },
+  {
+    text: "技术杂谈",
     items: [
       {
         text: "聊下前端 —— 关于我的职业经历和前端是否会被“取代”的碎碎念",
@@ -49,15 +67,6 @@ export const articlesSidebar: DefaultTheme.SidebarItem[] = [
       {
         text: "Uber Go 风格指南（译）",
         link: "/articles/uber-go"
-      }
-    ]
-  },
-  {
-    text: "Linux",
-    items: [
-      {
-        text: "使用 Systemd 防止移动硬盘休眠",
-        link: "/articles/linux-keep-usb-alive"
       }
     ]
   }
