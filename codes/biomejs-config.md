@@ -85,7 +85,7 @@ BiomeJS 更简便
 
 ```jsonc
 {
-  "$schema": "https://biomejs.dev/schemas/2.2.4/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.3.10/schema.json",
   "vcs": {
     "enabled": true,
     "clientKind": "git",
@@ -124,7 +124,11 @@ BiomeJS 更简便
         // 推荐使用 for...of 而不是传统的 for 循环
         "useForOf": "error",
         // React：仅在专门导出 React 组件的模块内声明组件。为 React Refresh 所必须。
-        "useComponentExportOnlyModules": "warn"
+        "useComponentExportOnlyModules": "warn",
+        // React：禁止隐性布尔值转换
+        "noImplicitBoolean": "error",
+        // React：优先使用自闭合元素
+        "useSelfClosingElements": "error"
       },
       "correctness": {
         // 强制 JSDoc 注释行以单个星号开头，第一个除外。
@@ -138,12 +142,8 @@ BiomeJS 更简便
         // React：不允许给 props 赋值
         "noReactPropAssignments": "error",
         // React：不允许在其他组件内定义 React 组件。
-        "noNestedComponentDefinitions": "error",
-        // React：优先使用自闭合元素
-        "useSelfClosingElements": "error"
-      },
-      // React：禁止隐性布尔值转换
-      "noImplicitBoolean": "error"
+        "noNestedComponentDefinitions": "error"
+      }
     }
   },
   "javascript": {
