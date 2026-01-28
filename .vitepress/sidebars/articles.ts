@@ -17,6 +17,10 @@ export const articlesSidebar: DefaultTheme.SidebarItem[] = [
       {
         text: "使用 Systemd 防止移动硬盘休眠",
         link: "/articles/linux-keep-usb-alive"
+      },
+      {
+        text: "在只有无线网卡的笔记本上通过 Archiso 安装 Arch Linux",
+        link: "/articles/archiso-wifi-laptop"
       }
     ]
   },
