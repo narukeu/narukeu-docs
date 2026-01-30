@@ -8,7 +8,7 @@ BiomeJS 更简便
 
 ```jsonc
 {
-  "$schema": "https://biomejs.dev/schemas/2.2.4/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.3.13/schema.json",
   "vcs": {
     "enabled": true,
     "clientKind": "git",
@@ -85,7 +85,7 @@ BiomeJS 更简便
 
 ```jsonc
 {
-  "$schema": "https://biomejs.dev/schemas/2.3.10/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.3.13/schema.json",
   "vcs": {
     "enabled": true,
     "clientKind": "git",
@@ -139,11 +139,13 @@ BiomeJS 更简便
         "useHookAtTopLevel": "warn",
         // React：确保 Hook 的依赖项数组是正确的
         "useExhaustiveDependencies": "warn",
-        // React：不允许给 props 赋值
-        "noReactPropAssignments": "error",
         // React：不允许在其他组件内定义 React 组件。
         "noNestedComponentDefinitions": "error"
       }
+    },
+    // 启用 React 领域规则
+    "domains": {
+      "react": "recommended"
     }
   },
   "javascript": {
@@ -176,15 +178,15 @@ BiomeJS 更简便
 
 ```jsonc
 {
-  "$schema": "https://biomejs.dev/schemas/2.3.11/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.3.13/schema.json",
   "vcs": {
     "enabled": true,
     "clientKind": "git",
+    // 使用 .gitignore 文件来忽略文件
     "useIgnoreFile": true
   },
   "files": {
-    "ignoreUnknown": true,
-    "includes": ["**", "!node_modules", "!.next", "!dist", "!build"]
+    "ignoreUnknown": true
   },
   "formatter": {
     "enabled": true,
@@ -232,12 +234,11 @@ BiomeJS 更简便
         "useHookAtTopLevel": "warn",
         // React：确保 Hook 的依赖项数组是正确的
         "useExhaustiveDependencies": "warn",
-        // React：不允许给 props 赋值
-        "noReactPropAssignments": "error",
         // React：不允许在其他组件内定义 React 组件。
         "noNestedComponentDefinitions": "error"
       }
     },
+    // 启用 Next.js 和 React 领域规则
     "domains": {
       "next": "recommended",
       "react": "recommended"
@@ -258,14 +259,13 @@ BiomeJS 更简便
     }
   },
   "assist": {
+    "enabled": true,
     "actions": {
       "source": {
         "organizeImports": "on"
       }
     }
   },
-  "css": {
-    "parser": {}
-  }
+  "css": {}
 }
 ```
