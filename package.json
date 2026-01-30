@@ -2,7 +2,7 @@
   "name": "narukeu-blog",
   "scripts": {
     "dev": "vitepress dev",
-    "build": "npm run clear && vitepress build",
+    "build": "npm run clean && vitepress build",
     "preview": "vitepress preview",
     "format": "prettier --ignore-path .gitignore --write .",
     "clean": "rimraf .vitepress/dist",
