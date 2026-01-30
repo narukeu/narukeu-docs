@@ -5,8 +5,8 @@
     "build": "npm run clear && vitepress build",
     "preview": "vitepress preview",
     "format": "prettier --ignore-path .gitignore --write .",
-    "clear": "rimraf .vitepress/dist",
-    "clear:all": "rimraf .vitepress/dist .vitepress/cache"
+    "clean": "rimraf .vitepress/dist",
+    "clean:all": "rimraf .vitepress/dist .vitepress/cache"
   },
   "license": "CC0-1.0",
   "packageManager": "pnpm@10.20.0",
