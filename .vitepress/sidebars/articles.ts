@@ -19,6 +19,10 @@ export const articlesSidebar: DefaultTheme.SidebarItem[] = [
         link: "/articles/ubuntu-server-hyperv-fix-ip"
       },
       {
+        text: "在主机上设置 Linux 客户机 SSH 免密钥登录",
+        link: "/articles/set-ssh-and-set-agent"
+      },
+      {
         text: "使用 Systemd 防止移动硬盘休眠",
         link: "/articles/linux-keep-usb-alive"
       },
