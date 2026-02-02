@@ -15,6 +15,10 @@ export const articlesSidebar: DefaultTheme.SidebarItem[] = [
     text: "Linux",
     items: [
       {
+        text: "固定在 Hyper-V 中 Ubuntu Server 虚拟机的 IP 地址",
+        link: "/articles/ubuntu-server-hyperv-fix-ip"
+      },
+      {
         text: "使用 Systemd 防止移动硬盘休眠",
         link: "/articles/linux-keep-usb-alive"
       },
@@ -71,6 +75,10 @@ export const articlesSidebar: DefaultTheme.SidebarItem[] = [
       {
         text: "Uber Go 风格指南（译）",
         link: "/articles/uber-go"
+      },
+      {
+        text: "JSDoc 注释规范",
+        link: "/articles/jsdoc-based-comment"
       }
     ]
   }

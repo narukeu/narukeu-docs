@@ -138,14 +138,3 @@
 ## 8. 注释规范
 
 - **核心原则**：注释重在解释“**为什么**”（Why），而非“**做了什么**”（What）。代码应尽量自解释其功能，注释补充设计意图、背景与原因。非必要不写注释。
-- **TSDoc 风格**：在 TypeScript 项目中，公开的 API 应使用 TSDoc 风格的块注释 (`/** ... */`)，并使用 `@param`, `@returns` 等标准标签。
-
-## 9. Node.js 版本与编译器/工具链选项
-
-- **Node.js 版本基线**：新项目运行环境与构建环境的最低版本为 **Node.js 22.x**。若需使用仅在更高版本中可用的实验/新增特性，应在 README 或相关文档中明确说明并附加降级策略。
-- **TypeScript 编译选项（相关部分）**：
-  - `noUnusedParameters`: 设为 `false`（通过 Biome 的 `correctness/noUnusedVariables` + 前缀 `_` 约定处理未使用形参）。
-  - `noUnusedLocals`: 可视项目阶段与代码稳定度选择 `true` 或 `false`；若开启为 `true`，临时变量请及时清理或前缀 `_` 并在重构阶段移除。
-  - 保持与不使用 `enum/const enum` 策略一致，不因编译器优化需要启用 `preserveConstEnums` 等相关配置。
-- **未使用符号约定**：统一使用下划线前缀（例如 `_unused`, `_result`）允许存在于签名中；避免在实现体中残留无意义局部变量。
-- **工具链统一**：导入排序、格式化、Lint 均由 Biome 完成；不再为 Vue/React/Solid 单独保留 ESLint 配置。若历史项目仍含 `.eslintrc.*`，其状态为“遗留仅阅读”且不接受新增修改。
