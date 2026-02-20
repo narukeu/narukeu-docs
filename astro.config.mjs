@@ -48,6 +48,7 @@ export default defineConfig({
           items: githubCollectionsSidebar
         }
       ],
+	    routeMiddleware: "./src/route.ts",
 	    plugins: [
       ],
     })
