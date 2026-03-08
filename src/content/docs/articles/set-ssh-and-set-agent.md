@@ -27,3 +27,24 @@ SSH 登录客户机，然后用 `nano` 编辑 `~/.ssh/authorized_keys` 文件，
 ```powershell
 ssh-add $env:USERPROFILE\.ssh\id_ed25519
 ```
+
+### 3.1 在 macOS 上的配置
+
+在 macOS 上，需要先配置一下 SSH Agent：
+
+```bash
+nano ~/.ssh/config
+```
+
+添加以下内容：
+
+```plain
+Host *
+  AddKeysToAgent yes
+  UseKeychain yes
+  IdentityFile ~/.ssh/id_ed25519
+```
+
+再运行：`ssh-add --apple-use-keychain ~/.ssh/id_ed25519` 来将密钥添加到 Keychain 中。
+
+通过 `ssh-add -l` 来查看已添加的密钥列表，验证是否成功
