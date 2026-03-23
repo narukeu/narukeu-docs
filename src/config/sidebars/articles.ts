@@ -13,7 +13,7 @@ export const articlesSidebar: SidebarItem[] = [
     ]
   },
   {
-    label: "Linux",
+    label: "Linux/Unix",
     collapsed: false,
     items: [
       {
@@ -31,6 +31,10 @@ export const articlesSidebar: SidebarItem[] = [
       {
         label: "在只有无线网卡的笔记本上通过 Archiso 安装 Arch Linux",
         slug: "articles/archiso-wifi-laptop"
+      },
+      {
+        label: "macOS 26 终端默认主题的颜色配置",
+        slug: "articles/apple-default-terminal-color"
       }
     ]
   },

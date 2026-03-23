@@ -1,0 +1,26 @@
+---
+title: macOS 26 终端默认主题的颜色配置
+---
+
+| Key                    | HEX Color | Notes                                       |
+| ---------------------- | --------- | ------------------------------------------- |
+| ANSIBlackColor         | #35424C   | RGB: 0.208221729 0.2588729473 0.2961375701  |
+| ANSIBlueColor          | #6D96B4   | RGB: 0.4274509804 0.5882352941 0.7058823529 |
+| ANSIBrightBlackColor   | #465C6D   | RGB: 0.2763328949 0.3625957779 0.4260602691 |
+| ANSIBrightBlueColor    | #67B5ED   | RGB: 0.4039215686 0.7098039216 0.9294117647 |
+| ANSIBrightCyanColor    | #84DDE0   | RGB: 0.5177743662 0.8677316158 0.8797991071 |
+| ANSIBrightGreenColor   | #79BE7E   | RGB: 0.4742048482 0.7433320203 0.4923891166 |
+| ANSIBrightMagentaColor | #D389E5   | RGB: 0.8274509804 0.537254902 0.8980392157  |
+| ANSIBrightRedColor     | #DF6C5A   | RGB: 0.8761320153 0.424238529 0.352688727   |
+| ANSIBrightWhiteColor   | #E5EFF5   | RGB: 0.8995791401 0.9354739751 0.9618821747 |
+| ANSIBrightYellowColor  | #E5C872   | RGB: 0.8980392157 0.7843137255 0.4470588235 |
+| ANSICyanColor          | #7CCBCD   | RGB: 0.4847151205 0.7950070909 0.805706814  |
+| ANSIGreenColor         | #6CAA71   | RGB: 0.4241566305 0.6672818346 0.4415227165 |
+| ANSIMagentaColor       | #BD7BCD   | RGB: 0.7411764706 0.4823529412 0.8039215686 |
+| ANSIRedColor           | #B45648   | RGB: 0.7050900829 0.3357157301 0.2811490643 |
+| ANSIWhiteColor         | #DEE5EB   | RGB: 0.8687835755 0.8995435314 0.9221739477 |
+| ANSIYellowColor        | #C4AC62   | RGB: 0.768627451 0.6745098039 0.3843137255  |
+| BackgroundColor        | #191D27   | RGB: 0.09838771145 0.1138777476 0.152602838 |
+| SelectionColor         | #273D4C   | RGB: 0.1537491748 0.2374671041 0.297265625  |
+| TextBoldColor          | #EDEDED   | RGB: 0.9285714286 0.9285714286 0.9285714286 |
+| TextColor              | #E0E0E0   | RGB: 0.8776108099 0.8776108099 0.8776108099 |
