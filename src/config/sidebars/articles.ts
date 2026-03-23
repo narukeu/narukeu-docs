@@ -43,6 +43,10 @@ export const articlesSidebar: SidebarItem[] = [
     collapsed: false,
     items: [
       {
+        label: "从“Bash 即一切”的望文生义开始 —— 聊一聊AI自媒体们多么不专业",
+        slug: "articles/from-bash-is-everything"
+      },
+      {
         label: '聊下前端 —— 关于我的职业经历和前端是否会被"取代"的碎碎念',
         slug: "articles/oh-frontend"
       },
