@@ -29,6 +29,10 @@ export const articlesSidebar: SidebarItem[] = [
         slug: "articles/linux-keep-usb-alive"
       },
       {
+        label: "GNOME 禁止睡眠",
+        slug: "articles/gnome-no-sleep"
+      },
+      {
         label: "在只有无线网卡的笔记本上通过 Archiso 安装 Arch Linux",
         slug: "articles/archiso-wifi-laptop"
       },
