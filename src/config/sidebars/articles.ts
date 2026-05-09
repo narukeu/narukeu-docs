@@ -33,6 +33,10 @@ export const articlesSidebar: SidebarItem[] = [
         slug: "articles/gnome-no-sleep"
       },
       {
+        label: "RHEL：GNU Screen 的 /run/screen 问题导致无法使用",
+        slug: "articles/gnu-screen-el10"
+      },
+      {
         label: "在只有无线网卡的笔记本上通过 Archiso 安装 Arch Linux",
         slug: "articles/archiso-wifi-laptop"
       },
