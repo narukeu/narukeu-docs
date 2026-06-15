@@ -17,6 +17,10 @@ export const articlesSidebar: SidebarItem[] = [
     collapsed: false,
     items: [
       {
+        label: "创建 `.bashrc.d` 文件夹，使得 bash 能够从这里读取模块化配置",
+        slug: "articles/bashrc-d"
+      },
+      {
         label: "固定在 Hyper-V 中 Ubuntu Server 虚拟机的 IP 地址",
         slug: "articles/ubuntu-server-hyperv-fix-ip"
       },
