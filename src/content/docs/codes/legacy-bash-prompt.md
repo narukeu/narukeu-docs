@@ -14,3 +14,9 @@ bin		libexec		sbin		standalone	X11R6
 lib		local		share		X11
 [luke@luke-macbook2025 ~]$
 ```
+
+如果在 zsh 上则是：
+
+```bash
+PROMPT='[%n@%m %1~]%# '
+```
