@@ -6,10 +6,14 @@ export const codesSidebar: SidebarItem[] = [
     label: "配置文件",
     collapsed: false,
     items: [
+      { label: "传统 Bash 方框提示符", slug: "codes/legacy-bash-prompt" },
+      {
+        label: "macOS 默认 zsh 提示符",
+        slug: "codes/macos-default-zsh-prompt"
+      },
       { label: "前端通用 .gitignore", slug: "codes/frontend-gitignore" },
       { label: "BiomeJS 配置", slug: "codes/biomejs-config" },
-      { label: "Eslint 配置", slug: "codes/eslint-flat-config" },
-      { label: "macOS 默认 zsh 提示符", slug: "codes/macos-default-zsh-prompt" }
+      { label: "Eslint 配置", slug: "codes/eslint-flat-config" }
     ]
   },
   {
