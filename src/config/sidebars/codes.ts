@@ -8,7 +8,8 @@ export const codesSidebar: SidebarItem[] = [
     items: [
       { label: "前端通用 .gitignore", slug: "codes/frontend-gitignore" },
       { label: "BiomeJS 配置", slug: "codes/biomejs-config" },
-      { label: "Eslint 配置", slug: "codes/eslint-flat-config" }
+      { label: "Eslint 配置", slug: "codes/eslint-flat-config" },
+      { label: "macOS 默认 zsh 提示符", slug: "codes/macos-default-zsh-prompt" }
     ]
   },
   {
@@ -26,7 +27,8 @@ export const codesSidebar: SidebarItem[] = [
         slug: "codes/array-get-value-by-select-data"
       },
       {
-        label: "根据 id 列表从对象数组中过滤出项并返回匹配项和在其在原数组的索引",
+        label:
+          "根据 id 列表从对象数组中过滤出项并返回匹配项和在其在原数组的索引",
         slug: "codes/filter-array-with-index-by-id"
       }
     ]
